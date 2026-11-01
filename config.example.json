@@ -1,0 +1,13 @@
+{
+  "channel_brand": "JYOTIRLING SHIVMATH BARAULI LUCKNOW",
+  "channel_handle": "@MAHANTRAJESHKUMARTIWARIRANJAN",
+  "timezone": "Asia/Kolkata",
+  "audit": {
+    "max_videos_per_run": 5000,
+    "include_unlisted": false
+  },
+  "approval": {
+    "required_for_all_channel_changes": true,
+    "required_for_upload_and_publish": true
+  }
+}
