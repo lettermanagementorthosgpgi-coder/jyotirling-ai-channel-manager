@@ -1,0 +1,11 @@
+client_secret.json
+credentials.json
+token.json
+.secrets/
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+reports/*
+!reports/.gitkeep
