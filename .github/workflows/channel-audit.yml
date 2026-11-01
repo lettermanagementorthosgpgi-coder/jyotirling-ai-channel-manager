@@ -1,0 +1,42 @@
+name: Read-only YouTube channel audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Daily at 10:00 AM India time (04:30 UTC)
+    - cron: "30 4 * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  channel-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run read-only channel audit
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: python main.py
+
+      - name: Save audit report
+        uses: actions/upload-artifact@v4
+        with:
+          name: jyotirling-channel-audit
+          path: reports/*.json
+          if-no-files-found: error
+          retention-days: 30
