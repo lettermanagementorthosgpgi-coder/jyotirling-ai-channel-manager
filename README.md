@@ -8,41 +8,33 @@ A separate, approval-first toolkit for auditing and improving the **JYOTIRLING S
 - It does not edit titles, descriptions, tags, thumbnails, playlists, or publish videos/Shorts.
 - Any future write/publish capability must require a separate explicit approval step.
 - Never commit OAuth tokens, client secrets, API keys, or downloaded private media.
+- GitHub Actions secrets are used for unattended read-only authentication.
 
-## Phase 1: channel audit
+## Phase 1: GitHub Actions audit
 
-### Requirements
-- Python 3.10+
-- YouTube Data API v3 enabled in a Google Cloud project
-- YouTube Analytics API enabled in the same project
-- OAuth Desktop App credentials saved locally as `client_secret.json`
+The workflow is in `.github/workflows/channel-audit.yml`. It can be started manually from **Actions → Read-only YouTube channel audit → Run workflow**, and is scheduled daily at 10:00 AM India time.
 
-### Setup
-1. Create a Google Cloud project and enable YouTube Data API v3 and YouTube Analytics API.
-2. Create OAuth credentials of type **Desktop app** and download the JSON file.
-3. Save it locally as `client_secret.json` in this project folder. Do not upload it to GitHub.
-4. Install dependencies:
+### Required repository Actions secrets
 
-   ```bash
-   pip install -r requirements.txt
-   ```
+Add these under **Settings → Secrets and variables → Actions → New repository secret**:
 
-5. Run:
+- `YT_CLIENT_ID`
+- `YT_CLIENT_SECRET`
+- `YT_REFRESH_TOKEN`
 
-   ```bash
-   python main.py
-   ```
+Never put these values in repository files, commits, workflow YAML, issues, or chat messages.
 
-On first run, a browser window will ask you to authorize read-only access to your YouTube channel. The local token is stored in `.secrets/token.json` and is excluded from Git.
+The OAuth app must have YouTube Data API v3 and YouTube Analytics API enabled, with read-only scopes:
+- `https://www.googleapis.com/auth/youtube.readonly`
+- `https://www.googleapis.com/auth/yt-analytics.readonly`
+
+A one-time Google authorization is needed to obtain the refresh token. Do not create or paste a token into a tracked file.
 
 ## Reports
 
-The audit creates timestamped CSV/JSON reports in `reports/`:
-- Channel video inventory
-- Available per-video performance metrics
-- Basic attention flags for videos with impressions but low click-through rate, or views/watch-time patterns that merit review
+Each successful run creates a JSON audit report and stores it as a downloadable GitHub Actions artifact named `jyotirling-channel-audit` (retained for 30 days).
 
-Metrics availability depends on YouTube Analytics API permissions and reporting latency. The tool does not claim that a metric is available when the API does not return it.
+The report includes channel video inventory and available per-video lifetime statistics and last-90-days analytics. Metrics availability depends on YouTube Analytics API permissions and reporting latency.
 
 ## Roadmap
 
