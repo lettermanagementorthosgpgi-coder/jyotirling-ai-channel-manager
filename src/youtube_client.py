@@ -1,10 +1,11 @@
-"""OAuth clients with read-only scopes only."""
+"""Read-only OAuth clients for local runs and GitHub Actions."""
+import os
 from pathlib import Path
 
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+
 
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.readonly",
@@ -13,28 +14,39 @@ SCOPES = [
 
 
 def build_youtube_services(root: Path):
-    secrets_dir = root / ".secrets"
-    secrets_dir.mkdir(exist_ok=True)
-    token_path = secrets_dir / "token.json"
-    client_secret = root / "client_secret.json"
+    """Build API clients using Actions secrets, or a local token file.
 
-    if not client_secret.exists():
-        raise FileNotFoundError(
-            "client_secret.json is missing. Add your Google OAuth Desktop App "
-            "credentials locally; never commit this file to GitHub."
+    GitHub Actions requires YT_CLIENT_ID, YT_CLIENT_SECRET and
+    YT_REFRESH_TOKEN repository Actions secrets. No secret is stored in Git.
+    """
+    client_id = os.getenv("YT_CLIENT_ID")
+    client_secret = os.getenv("YT_CLIENT_SECRET")
+    refresh_token = os.getenv("YT_REFRESH_TOKEN")
+
+    if client_id and client_secret and refresh_token:
+        creds = Credentials(
+            token=None,
+            refresh_token=refresh_token,
+            token_uri="https://oauth2.googleapis.com/token",
+            client_id=client_id,
+            client_secret=client_secret,
+            scopes=SCOPES,
         )
-
-    creds = None
-    if token_path.exists():
-        creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
-
-    if creds and creds.expired and creds.refresh_token:
         creds.refresh(Request())
+    else:
+        secrets_dir = root / ".secrets"
+        token_path = secrets_dir / "token.json"
+        if not token_path.exists():
+            raise RuntimeError(
+                "Missing GitHub Actions secrets (YT_CLIENT_ID, "
+                "YT_CLIENT_SECRET, YT_REFRESH_TOKEN) or local .secrets/token.json."
+            )
+        creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
+        if creds.expired and creds.refresh_token:
+            creds.refresh(Request())
 
-    if not creds or not creds.valid:
-        flow = InstalledAppFlow.from_client_secrets_file(str(client_secret), SCOPES)
-        creds = flow.run_local_server(port=0)
-        token_path.write_text(creds.to_json(), encoding="utf-8")
+    if not creds.valid:
+        raise RuntimeError("Google OAuth credentials are not valid; re-authorize.")
 
     youtube = build("youtube", "v3", credentials=creds, cache_discovery=False)
     analytics = build("youtubeAnalytics", "v2", credentials=creds, cache_discovery=False)
