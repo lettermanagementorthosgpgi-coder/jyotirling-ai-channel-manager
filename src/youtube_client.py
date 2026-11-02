@@ -5,8 +5,11 @@ from google.auth.transport.requests import Request, AuthorizedSession
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
+# captions.list/download require this scope; download also requires edit
+# permission on the channel's own video.
 SCOPES = ["https://www.googleapis.com/auth/youtube.readonly",
-          "https://www.googleapis.com/auth/yt-analytics.readonly"]
+          "https://www.googleapis.com/auth/yt-analytics.readonly",
+          "https://www.googleapis.com/auth/youtube.force-ssl"]
 
 
 def build_youtube_services(root: Path):
@@ -23,7 +26,7 @@ def build_youtube_services(root: Path):
             raise RuntimeError("Missing GitHub Actions OAuth secrets or local .secrets/token.json.")
         creds = Credentials.from_authorized_user_file(str(token_path), SCOPES)
         if creds.expired and creds.refresh_token: creds.refresh(Request())
-    if not creds.valid: raise RuntimeError("Google OAuth credentials are not valid; re-authorize.")
+    if not creds.valid: raise RuntimeError("Google OAuth credentials are not valid; re-authorize with the updated scopes.")
     youtube = build("youtube","v3",credentials=creds,cache_discovery=False)
     analytics = build("youtubeAnalytics","v2",credentials=creds,cache_discovery=False)
     reporting = build("youtubereporting","v1",credentials=creds,cache_discovery=False)
