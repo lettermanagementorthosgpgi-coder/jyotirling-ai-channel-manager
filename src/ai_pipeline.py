@@ -94,7 +94,7 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
     result_items = []
 
     with sqlite3.connect(state_path) as db:
-        db.execute("""CREATE TABLE IF NOT EXISTS preparations (
+        db.execute("""CREATE TABLE IF NOT EXISTS preparations_v2 (
             video_id TEXT PRIMARY KEY, stages_json TEXT NOT NULL DEFAULT '{}',
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
 
@@ -104,7 +104,7 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                 continue
             transcript_file = transcript_dir / f"{_safe_id(vid)}.txt"
             transcript = transcript_file.read_text(encoding="utf-8") if transcript_file.exists() else None
-            row = db.execute("SELECT stages_json FROM preparations WHERE video_id=?", (vid,)).fetchone()
+            row = db.execute("SELECT stages_json FROM preparations_v2 WHERE video_id=?", (vid,)).fetchone()
             stages = json.loads(row[0]) if row else {}
             errors = []
             if not providers:
@@ -137,7 +137,7 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                         output, model = generate(
                             provider, _prompt(instruction, item, previous, transcript))
                         stages[role] = {"provider": provider, "model": model, "output": output}
-                        db.execute("""INSERT INTO preparations(video_id, stages_json, updated_at)
+                        db.execute("""INSERT INTO preparations_v2(video_id, stages_json, updated_at)
                             VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(video_id) DO UPDATE SET
                             stages_json=excluded.stages_json, updated_at=CURRENT_TIMESTAMP""",
                             (vid, json.dumps(stages, ensure_ascii=False)))
