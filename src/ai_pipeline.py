@@ -193,7 +193,8 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                     composition = compose_thumbnail(
                         thumbnail_result["file"], composed_path,
                         item.get("source_title") or item.get("title") or "विशेष आध्यात्मिक प्रवचन",
-                        photo_path)
+                        video=item,
+                        final_package=stages[ROLES[2][0]]["output"])
                     thumbnail_result.update(composition)
                     thumbnail_result["status"] = (
                         "thumbnail_ready_for_user_review" if composition["author_photo_included"]
