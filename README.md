@@ -40,6 +40,16 @@ Per-video YouTube Analytics for the trailing 90-day reporting window is also pag
 
 This is still a read-only audit. No YouTube channel metadata, videos, thumbnails, playlists, or publishing settings are changed.
 
+
+## New-upload preparation queue (from 2 November 2026)
+
+- The audit runs hourly and includes every public upload published on or after **2 November 2026 (Asia/Kolkata)**, irrespective of topic.
+- The existing historical review remains separately scoped to the selected 14 Bhagavad Gita videos; the new-upload queue is not limited to those chapters.
+- Each new upload receives a preparation record with source metadata, thumbnail URLs, transcript-retrieval status, required SEO/thumbnail deliverables, and the AI-1 → AI-2 → AI-3 review rotation/handoff ledger.
+- The queue is a discovery and handoff record, not a claim that three external AI services have already processed the video. AI provider connections and transcript access must be configured before unattended AI drafting can run.
+- The workflow remains read-only: it does not alter titles, descriptions, tags, thumbnails, or publish anything. All implementation remains pending the user's explicit approval.
+- The report's queue is regenerated from the channel inventory each run, so videos uploaded earlier on the start date are still included in later runs.
+
 ## Approved Shorts Manager requirements
 
 The planned Shorts Manager must:
