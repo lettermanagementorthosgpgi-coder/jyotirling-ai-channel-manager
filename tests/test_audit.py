@@ -1,7 +1,7 @@
 """Unit tests for paginated YouTube Analytics collection."""
 import unittest
 
-from src.audit import _analytics_by_video
+from src.audit import _analytics_by_video, _unique_playlist_video_ids
 
 
 class FakeRequest:
@@ -39,6 +39,62 @@ class FakeAnalytics:
 
     def query(self, **kwargs):
         return self._reports.query(**kwargs)
+
+
+
+class PlaylistVideoDeduplicationTests(unittest.TestCase):
+    def test_repeated_video_id_is_reported_but_counted_once(self):
+        items = [
+            {
+                "id": "playlist-item-1",
+                "snippet": {"title": "Same title", "position": 0},
+                "contentDetails": {"videoId": "video-A"},
+            },
+            {
+                "id": "playlist-item-2",
+                "snippet": {"title": "Different title", "position": 1},
+                "contentDetails": {"videoId": "video-B"},
+            },
+            {
+                "id": "playlist-item-3",
+                "snippet": {"title": "Same title", "position": 2},
+                "contentDetails": {"videoId": "video-A"},
+            },
+        ]
+
+        unique_ids, duplicates = _unique_playlist_video_ids(items)
+
+        self.assertEqual(unique_ids, ["video-A", "video-B"])
+        self.assertEqual(len(duplicates), 1)
+        self.assertEqual(duplicates[0]["video_id"], "video-A")
+        self.assertEqual(duplicates[0]["playlist_item_id"], "playlist-item-3")
+        self.assertEqual(duplicates[0]["position"], 2)
+
+    def test_same_title_with_different_video_ids_are_kept(self):
+        items = [
+            {
+                "snippet": {"title": "CHARON DHAM YATRA"},
+                "contentDetails": {"videoId": "video-A"},
+            },
+            {
+                "snippet": {"title": "CHARON DHAM YATRA"},
+                "contentDetails": {"videoId": "video-B"},
+            },
+        ]
+
+        unique_ids, duplicates = _unique_playlist_video_ids(items)
+
+        self.assertEqual(unique_ids, ["video-A", "video-B"])
+        self.assertEqual(duplicates, [])
+
+    def test_missing_video_ids_are_ignored(self):
+        unique_ids, duplicates = _unique_playlist_video_ids([
+            {"snippet": {"title": "No ID"}, "contentDetails": {}},
+            {"contentDetails": {"videoId": "video-A"}},
+        ])
+
+        self.assertEqual(unique_ids, ["video-A"])
+        self.assertEqual(duplicates, [])
 
 
 class AnalyticsPaginationTests(unittest.TestCase):
