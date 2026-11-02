@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import subprocess
-import textwrap
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
@@ -45,7 +44,7 @@ def compose_thumbnail(background_path, output_path, title, author_photo_path=Non
 
     # Fixed channel header and lower speaker band.
     draw.rounded_rectangle((24, 18, 1256, 86), radius=18, fill=(10, 10, 10, 178))
-    header_font = _font( thirty := 30)
+    header_font = _font(30)
     header = "JYOTIRLING SHIVMATH BARAULI LUCKNOW"
     draw.text((640, 52), header, font=header_font, fill="white",
               anchor="mm", stroke_width=1, stroke_fill=(0, 0, 0, 210))
