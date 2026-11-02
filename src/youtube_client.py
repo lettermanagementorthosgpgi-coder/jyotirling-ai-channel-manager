@@ -18,7 +18,9 @@ def build_youtube_services(root: Path):
     if client_id and client_secret and refresh_token:
         creds = Credentials(token=None, refresh_token=refresh_token,
             token_uri="https://oauth2.googleapis.com/token", client_id=client_id,
-            client_secret=client_secret, scopes=SCOPES)
+            client_secret=client_secret)
+        # A refresh token cannot be upgraded by sending new scopes during refresh.
+        # Let Google issue the access token with the scopes originally granted.
         creds.refresh(Request())
     else:
         token_path = root / ".secrets" / "token.json"
