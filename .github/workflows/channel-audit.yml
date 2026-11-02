@@ -2,6 +2,9 @@ name: Read-only YouTube channel audit and AI preparation
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feature/new-upload-preparation-queue
   schedule:
     - cron: "0 * * * *"
 
