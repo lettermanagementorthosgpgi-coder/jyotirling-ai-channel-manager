@@ -5,6 +5,7 @@ from pathlib import Path
 from src.youtube_client import build_youtube_services
 from src.audit import run_channel_audit
 from src.preparation_queue import build_new_upload_preparation_queue
+from src.transcript_retrieval import retrieve_queue_transcripts
 from src.ai_pipeline import run_ai_preparation
 
 ROOT = Path(__file__).resolve().parent
@@ -27,6 +28,9 @@ def main():
         result["videos"],
         start_date=prep.get("start_date_local", "2026-11-02"),
         timezone=config.get("timezone", "Asia/Kolkata"))
+    transcript_result = retrieve_queue_transcripts(youtube, queue.get("items", []), ROOT / "transcripts")
+    for item in queue.get("items", []):
+        item["transcript_retrieval"] = transcript_result["results"].get(item.get("video_id"), {})
     ai_result = run_ai_preparation(queue, ROOT / ".state" / "preparation.sqlite",
                                    ROOT / "transcripts")
     result["new_upload_preparation"] = {
@@ -35,6 +39,7 @@ def main():
         "videos_in_queue": queue["videos_in_queue"],
         "items": ai_result["items"],
         "providers_configured": ai_result["providers_configured"],
+        "transcript_retrieval": {"videos_checked": transcript_result["videos_checked"], "transcripts_available": transcript_result["transcripts_available"]},
         "note": ai_result["note"]
     }
     result["ai_preparation_summary"] = {
