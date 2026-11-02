@@ -3,7 +3,6 @@ name: Read-only YouTube channel audit and AI preparation
 on:
   workflow_dispatch:
   schedule:
-    # Discover and prepare newly published videos every hour.
     - cron: "0 * * * *"
 
 concurrency:
@@ -24,7 +23,9 @@ jobs:
       - name: Restore AI preparation state
         uses: actions/cache@v4
         with:
-          path: .state/preparation.sqlite
+          path: |
+            .state/preparation.sqlite
+            thumbnails/*.png
           key: jyotirling-ai-prep-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
             jyotirling-ai-prep-${{ runner.os }}-
@@ -45,16 +46,18 @@ jobs:
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_MODEL: gpt-6-luna
           GEMINI_MODEL: gemini-3.8-flash
-          ANTHROPIC_MODEL: claude-sonnet-5-5
+          OPENAI_IMAGE_MODEL: gpt-image-2.5-flare
+          GEMINI_IMAGE_MODEL: gemini-3.1-flash-image
         run: python main.py
 
-      - name: Save audit and AI preparation report
+      - name: Save audit, AI preparation report and thumbnail backgrounds
         uses: actions/upload-artifact@v4
         with:
           name: jyotirling-channel-audit
-          path: reports/*.json
+          path: |
+            reports/*.json
+            thumbnails/*.png
           if-no-files-found: error
           retention-days: 30
