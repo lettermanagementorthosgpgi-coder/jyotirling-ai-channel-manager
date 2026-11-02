@@ -16,6 +16,36 @@ def _paged_request(service, method: str, **kwargs):
     return items
 
 
+def _unique_playlist_video_ids(playlist_items: list[dict]) -> tuple[list[str], list[dict]]:
+    """Return unique video IDs in playlist order and describe repeated entries.
+
+    Titles are deliberately not used as identifiers: two videos with the same
+    title but different YouTube video IDs remain separate inventory records.
+    """
+    unique_ids = []
+    seen_ids = set()
+    duplicate_entries = []
+
+    for item in playlist_items:
+        video_id = item.get("contentDetails", {}).get("videoId")
+        if not video_id:
+            continue
+        if video_id in seen_ids:
+            snippet = item.get("snippet", {})
+            duplicate_entries.append({
+                "video_id": video_id,
+                "title": snippet.get("title"),
+                "playlist_item_id": item.get("id"),
+                "position": snippet.get("position"),
+                "published_at": snippet.get("publishedAt"),
+            })
+            continue
+        seen_ids.add(video_id)
+        unique_ids.append(video_id)
+
+    return unique_ids, duplicate_entries
+
+
 def _analytics_by_video(analytics, start_date: str, end_date: str) -> dict:
     """Fetch every available per-video Analytics row, not just the first 200."""
     metrics = (
@@ -100,11 +130,7 @@ def run_channel_audit(youtube, analytics, max_videos: int = 5000,
         maxResults=50,
     )[:max_videos]
 
-    ids = [
-        item.get("contentDetails", {}).get("videoId")
-        for item in playlist_items
-        if item.get("contentDetails", {}).get("videoId")
-    ]
+    ids, duplicate_playlist_entries = _unique_playlist_video_ids(playlist_items)
 
     video_details = []
     for offset in range(0, len(ids), 50):
@@ -163,6 +189,10 @@ def run_channel_audit(youtube, analytics, max_videos: int = 5000,
         "analytics_note": analytics_result.get("reason"),
         "analytics_pages_fetched": analytics_result["pages_fetched"],
         "videos_with_90_day_analytics": analytics_result["videos_with_analytics"],
+        "playlist_items_scanned": len(playlist_items),
+        "unique_video_ids": len(ids),
+        "duplicate_playlist_entries_count": len(duplicate_playlist_entries),
+        "duplicate_playlist_entries": duplicate_playlist_entries,
         "videos": videos,
         "safety": {
             "read_only": True,
