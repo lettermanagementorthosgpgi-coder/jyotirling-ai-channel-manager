@@ -73,11 +73,7 @@ No Anthropic/Claude key is required or used by this workflow. Never paste keys i
 
 ### Thumbnail branding asset
 
-The workflow generates a 16:9 devotional background and composes a 1280×720 review thumbnail with the fixed channel header, video title, and speaker line. To include the user's original, unaltered photograph, add the approved photo to the repository at:
-
-`assets/author.jpeg`
-
-If that file is absent, the workflow still creates a branded preview and clearly marks that the author photo is missing. It does not invent or synthesize the user's face. Generated thumbnails are saved as workflow artifacts for review; nothing is uploaded to or changed on YouTube automatically.
+The workflow reuses the existing master thumbnail `karmsanyasyog.jpeg` and layout logic from the user's separate public repository `jyotirlingshivmathlive/live_scheduler.py`. It downloads that master at run time, preserves the original portrait, fixed header, author plaque and frame, replaces only the designated story-art window for Shiv Puran, and updates the episode hook/chapter/footer text using the legacy coordinates and Devanagari typography. It then saves a 1280×720 review thumbnail. No separate author-photo upload is needed while the master image remains available at its source repository. Generated thumbnails are saved as workflow artifacts for review; nothing is uploaded to or changed on YouTube automatically.
 
 ### Transcript grounding
 
