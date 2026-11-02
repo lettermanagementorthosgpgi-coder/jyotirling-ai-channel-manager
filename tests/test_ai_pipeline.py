@@ -52,7 +52,7 @@ class AIPipelineTests(unittest.TestCase):
         self.assertEqual(item["ai_preparation"]["stages"]["AI-2_youtube_seo_and_thumbnail_brief"]["provider"], "gemini")
         self.assertEqual(item["ai_preparation"]["stages"]["AI-3_cross_review"]["provider"], "openai")
         self.assertEqual(item["ai_preparation"]["thumbnail"]["status"], "thumbnail_preview_ready_author_photo_missing")
-        self.assertTrue(os.path.exists(item["ai_preparation"]["thumbnail"]["file"]))
+        self.assertTrue(item["ai_preparation"]["thumbnail"]["file"].endswith("_thumbnail.png"))
         self.assertIn("openai", calls)
         self.assertIn("gemini", calls)
 
