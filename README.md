@@ -34,7 +34,11 @@ A one-time Google authorization is needed to obtain the refresh token. Do not cr
 
 Each successful run creates a JSON audit report and stores it as a downloadable GitHub Actions artifact named `jyotirling-channel-audit` (retained for 30 days).
 
-The report includes channel video inventory and available per-video lifetime statistics and last-90-days analytics. Metrics availability depends on YouTube Analytics API permissions and reporting latency.
+The inventory reads up to `audit.max_videos_per_run` uploads (currently 5,000) by paging through the channel's uploads playlist. Per-video lifetime view/like/comment counts are included where the Data API returns them.
+
+Per-video YouTube Analytics for the trailing 90-day reporting window is also paginated in batches of 200 rows until all available rows have been retrieved. The report records the number of Analytics pages fetched and the number of videos with Analytics rows. YouTube Analytics may omit videos with no reportable activity in that date range; therefore, a missing 90-day Analytics entry does not mean the video is absent from the inventory. Analytics availability also depends on API permissions and reporting latency.
+
+This is still a read-only audit. No YouTube channel metadata, videos, thumbnails, playlists, or publishing settings are changed.
 
 ## Roadmap
 
