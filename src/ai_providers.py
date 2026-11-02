@@ -6,10 +6,13 @@ or written to reports, source files, or generated artifacts.
 from __future__ import annotations
 
 import base64
+import io
 import json
 import os
 import urllib.error
 import urllib.request
+
+from PIL import Image
 
 
 class ProviderError(RuntimeError):
@@ -88,15 +91,28 @@ def _extract_gemini_image(data):
             if isinstance(block, dict) and block.get("type") == "image" and block.get("data"):
                 return block["data"]
 
-    # Defensive compatibility with older/alternate response envelopes.
     for step in data.get("outputs", []):
         if isinstance(step, dict) and step.get("type") == "image" and step.get("data"):
             return step["data"]
     return None
 
 
+def _normalize_image_to_png(image_bytes):
+    """Normalize provider image bytes to PNG for the downstream composer."""
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as source:
+            converted = source.convert("RGB")
+            output = io.BytesIO()
+            converted.save(output, format="PNG")
+            return output.getvalue()
+    except Exception as exc:
+        raise ProviderError(
+            f"Image payload could not be decoded/converted to PNG: {type(exc).__name__}: {exc}"
+        ) from exc
+
+
 def generate_thumbnail_background(provider, prompt):
-    """Generate a 16:9 background image and return (bytes, model)."""
+    """Generate a 16:9 PNG background and return (bytes, model)."""
     if provider == "openai":
         key = os.getenv("OPENAI_API_KEY")
         if not key:
@@ -110,22 +126,23 @@ def generate_thumbnail_background(provider, prompt):
         encoded = images[0].get("b64_json") if images else None
         if not encoded:
             raise ProviderError("OpenAI image API returned no image data")
-        return base64.b64decode(encoded), model
+        return _normalize_image_to_png(base64.b64decode(encoded)), model
 
     if provider == "gemini":
         key = os.getenv("GEMINI_API_KEY")
         if not key:
             raise ProviderError("GEMINI_API_KEY is not configured")
         model = os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image")
+        # This endpoint currently accepts JPEG, not image/png, for response_format.
         data = _post("https://generativelanguage.googleapis.com/v1beta/interactions", {
             "x-goog-api-key": key, "Content-Type": "application/json"
         }, {"model": model, "input": prompt,
-            "response_format": {"type": "image", "mime_type": "image/png",
+            "response_format": {"type": "image", "mime_type": "image/jpeg",
                                 "aspect_ratio": "16:9", "image_size": "2K"}},
             timeout=240)
         encoded = _extract_gemini_image(data)
         if not encoded:
             raise ProviderError("Gemini image API returned no image data")
-        return base64.b64decode(encoded), model
+        return _normalize_image_to_png(base64.b64decode(encoded)), model
 
     raise ProviderError(f"Unknown image provider: {provider}")
