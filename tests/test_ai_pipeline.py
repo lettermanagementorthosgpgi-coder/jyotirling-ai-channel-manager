@@ -28,7 +28,7 @@ class AIPipelineTests(unittest.TestCase):
                 raise RuntimeError("simulated image outage")
             return b"\x89PNG\r\n\x1a\nfake-png", "gemini-image-test"
 
-        def fake_compose(background, output, title, photo):
+        def fake_compose(background, output, title, **kwargs):
             Path(output).write_bytes(b"composed-preview")
             return {"file": str(output), "author_photo_included": False,
                     "dimensions": "1280x720"}
