@@ -3,8 +3,8 @@ name: Read-only YouTube channel audit
 on:
   workflow_dispatch:
   schedule:
-    # Daily at 10:00 AM India time (04:30 UTC)
-    - cron: "30 4 * * *"
+    # Hourly: discover uploads published from 2 Nov 2026 onward (UTC).
+    - cron: "0 * * * *"
 
 permissions:
   contents: read
