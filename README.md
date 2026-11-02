@@ -12,7 +12,7 @@ A separate, approval-first toolkit for auditing and improving the **JYOTIRLING S
 
 ## Phase 1: GitHub Actions audit
 
-The workflow is in `.github/workflows/channel-audit.yml`. It can be started manually from **Actions → Read-only YouTube channel audit → Run workflow**, and is scheduled daily at 10:00 AM India time.
+The workflow is in `.github/workflows/channel-audit.yml`. It can be started manually from **Actions → Read-only YouTube channel audit → Run workflow**, and is scheduled hourly (once per hour).
 
 ### Required repository Actions secrets
 
@@ -45,31 +45,39 @@ This is still a read-only audit. No YouTube channel metadata, videos, thumbnails
 
 - The audit runs hourly and includes every public upload published on or after **2 November 2026 (Asia/Kolkata)**, irrespective of topic.
 - The existing historical review remains separately scoped to the selected 14 Bhagavad Gita videos; the new-upload queue is not limited to those chapters.
-- Each new upload receives a preparation record with source metadata, thumbnail URLs, transcript-retrieval status, required SEO/thumbnail deliverables, and the AI-1 → AI-2 → AI-3 review rotation/handoff ledger.
-- The queue is a discovery and handoff record, not a claim that three external AI services have already processed the video. AI provider connections and transcript access must be configured before unattended AI drafting can run.
+- Each new upload receives a preparation record with source metadata, thumbnail URLs, transcript-retrieval status, required SEO/thumbnail deliverables, and the OpenAI → Gemini → independent cross-review handoff ledger.
+- The queue is a discovery and handoff record. OpenAI and Gemini provider keys must be configured before unattended AI drafting can run.
 - The workflow remains read-only: it does not alter titles, descriptions, tags, thumbnails, or publish anything. All implementation remains pending the user's explicit approval.
 - The report's queue is regenerated from the channel inventory each run, so videos uploaded earlier on the start date are still included in later runs.
 
 
-## Three-provider AI preparation
+## Two-provider AI preparation and thumbnail creation
 
-The hourly workflow can call three model APIs from the server side:
+The hourly workflow uses only the two API providers configured by the user:
 
-- AI-1 data analysis: OpenAI API (default model: `gpt-6-luna`)
-- AI-2 YouTube SEO drafting: Google Gemini API (default model: `gemini-3.8-flash`)
-- AI-3 independent review: Anthropic Claude API (default model: `claude-sonnet-5-5`)
+- AI-1 analysis: OpenAI API (default text model: `gpt-6-luna`)
+- AI-2 SEO and thumbnail brief: Google Gemini API (default text model: `gemini-3.8-flash`)
+- AI-3 independent cross-review: the other configured provider, preferring OpenAI after Gemini and Gemini after OpenAI. If only one key is available, that provider can complete the stages.
+- Thumbnail artwork: OpenAI Images API (default: `gpt-image-2.5-flare`) with Gemini image generation fallback (default: `gemini-3.1-flash-image`).
 
-Each role has a fallback rotation through the other configured providers if its preferred provider fails. Successful stages are saved in a SQLite preparation ledger, cached between scheduled workflow runs, and resumed rather than needlessly repeated. If no key is configured, the item remains blocked/pending; it is never marked complete.
+If a provider fails, the other configured provider is tried. Completed text stages are saved in SQLite and resumed on later runs. Image generation also falls back between OpenAI and Gemini. API image generation can incur separate usage charges.
 
 ### Required provider secrets
 
-Add whichever provider keys you want to use under **Settings → Secrets and variables → Actions → New repository secret**:
+Add these under **Settings → Secrets and variables → Actions → New repository secret**:
 
 - `OPENAI_API_KEY`
 - `GEMINI_API_KEY`
-- `ANTHROPIC_API_KEY`
 
-You can configure one, two, or all three. For the full three-AI review and fallback rotation, configure all three. Each API is billed by its provider according to the account's plan and usage; this repository does not include API credits. Never paste keys into chat, source code, issues, or commits.
+No Anthropic/Claude key is required or used by this workflow. Never paste keys into chat, source code, issues, or commits.
+
+### Thumbnail branding asset
+
+The workflow generates a 16:9 devotional background and composes a 1280×720 review thumbnail with the fixed channel header, video title, and speaker line. To include the user's original, unaltered photograph, add the approved photo to the repository at:
+
+`assets/author.jpeg`
+
+If that file is absent, the workflow still creates a branded preview and clearly marks that the author photo is missing. It does not invent or synthesize the user's face. Generated thumbnails are saved as workflow artifacts for review; nothing is uploaded to or changed on YouTube automatically.
 
 ### Transcript grounding
 
