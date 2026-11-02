@@ -27,6 +27,7 @@ Never put these values in repository files, commits, workflow YAML, issues, or c
 The OAuth app must have YouTube Data API v3 and YouTube Analytics API enabled, with read-only scopes:
 - `https://www.googleapis.com/auth/youtube.readonly`
 - `https://www.googleapis.com/auth/yt-analytics.readonly`
+- `https://www.googleapis.com/auth/youtube.force-ssl` (required for caption-track listing and download)
 
 A one-time Google authorization is needed to obtain the refresh token. Do not create or paste a token into a tracked file.
 
@@ -77,7 +78,7 @@ The master thumbnail `karmsanyasyog.jpeg` is bundled inside this repository at `
 
 ### Transcript grounding
 
-If a verified transcript is available, place it in `transcripts/<VIDEO_ID>.txt` in the runner's workspace before processing. When no transcript is available, the AI must mark its package as **metadata-only / provisional** and must not invent what was spoken. The current audit does not have permission to download captions automatically. Transcript access is a separate integration requirement.
+If a verified transcript is available, place it in `transcripts/<VIDEO_ID>.txt` in the runner's workspace before processing. When no transcript is available, the AI must mark its package as **metadata-only / provisional** and must not invent what was spoken. The hourly workflow now attempts transcript retrieval automatically: first through the official YouTube captions API, then through the best-effort `youtube-transcript-api` public-caption fallback. The official route requires the added `youtube.force-ssl` OAuth scope and the authenticated account must have edit permission on the video; `captions.list` returns track metadata and `captions.download` fetches the caption file. If neither route works, the report records each retrieval error and the AI remains metadata-only / provisional. To activate the official route, re-authorize the Google OAuth app and replace `YT_REFRESH_TOKEN` in GitHub Actions secrets with a token granted the new scope. Existing local `.secrets/token.json` must also be re-authorized. No video/audio is downloaded and no YouTube content is changed.
 
 AI outputs are drafts for the user's review. No title, description, tag, thumbnail, upload, or publication is changed automatically.
 
