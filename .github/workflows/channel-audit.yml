@@ -1,10 +1,14 @@
-name: Read-only YouTube channel audit
+name: Read-only YouTube channel audit and AI preparation
 
 on:
   workflow_dispatch:
   schedule:
-    # Hourly: discover uploads published from 2 Nov 2026 onward (UTC).
+    # Discover and prepare newly published videos every hour.
     - cron: "0 * * * *"
+
+concurrency:
+  group: jyotirling-channel-audit
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -12,10 +16,18 @@ permissions:
 jobs:
   channel-audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Restore AI preparation state
+        uses: actions/cache@v4
+        with:
+          path: .state/preparation.sqlite
+          key: jyotirling-ai-prep-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            jyotirling-ai-prep-${{ runner.os }}-
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -26,14 +38,20 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run read-only channel audit
+      - name: Run read-only channel audit and AI preparation
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_MODEL: gpt-6-luna
+          GEMINI_MODEL: gemini-3.8-flash
+          ANTHROPIC_MODEL: claude-sonnet-5-5
         run: python main.py
 
-      - name: Save audit report
+      - name: Save audit and AI preparation report
         uses: actions/upload-artifact@v4
         with:
           name: jyotirling-channel-audit
