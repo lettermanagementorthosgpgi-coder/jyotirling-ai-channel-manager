@@ -6,7 +6,7 @@ from src.preparation_queue import build_new_upload_preparation_queue
 class PreparationQueueTests(unittest.TestCase):
     def test_includes_every_upload_on_or_after_local_start_date(self):
         videos = [
-            {"video_id": "before", "published_at": "2026-11-01T23:00:00Z"},
+            {"video_id": "before", "published_at": "2026-11-01T17:00:00Z"},
             {"video_id": "today", "published_at": "2026-11-02T01:00:00Z", "title": "Morning upload"},
             {"video_id": "later", "published_at": "2026-11-03T01:00:00Z", "title": "Next upload"},
         ]
