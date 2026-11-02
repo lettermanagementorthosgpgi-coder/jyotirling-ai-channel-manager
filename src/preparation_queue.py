@@ -37,6 +37,9 @@ def build_new_upload_preparation_queue(videos, start_date, timezone="Asia/Kolkat
             "source_description": video.get("description"),
             "source_tags": video.get("tags", []),
             "duration": video.get("duration"),
+            "lifetime_statistics": video.get("lifetime_statistics", {}),
+            "last_90_days_analytics": video.get("last_90_days_analytics"),
+            "daily_analytics": video.get("daily_analytics", []),
             "thumbnail_urls": video.get("thumbnail_urls", {}),
             "transcript": {
                 "status": "pending_retrieval",
