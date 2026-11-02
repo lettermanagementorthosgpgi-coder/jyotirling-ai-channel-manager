@@ -14,12 +14,31 @@ def _write_transcript(path: Path, text: str) -> dict:
     return {"status": "available", "file": str(path), "characters": len(cleaned)}
 
 
+def _diagnose_transcript_error(exc: Exception) -> tuple[str, str]:
+    detail = f"{type(exc).__name__}: {exc}"[:700]
+    lowered = detail.lower()
+    if "requestblocked" in lowered or "blocking requests from your ip" in lowered:
+        return (
+            "runner_ip_blocked",
+            "YouTube blocked transcript-library requests from this GitHub-hosted runner IP. "
+            "This is a network/IP restriction, not proof that the video has no captions. "
+            "The read-only YouTube API grant does not authorize caption downloading. "
+            "Use an approved transcript text file, or run transcript retrieval from a "
+            "network where YouTube permits public transcript requests."
+        )
+    if "transcriptsdisabled" in lowered or "transcripts disabled" in lowered:
+        return "captions_disabled", "The video does not expose captions through the public transcript library."
+    if "notranscriptfound" in lowered or "no transcript" in lowered:
+        return "no_matching_transcript", "No public transcript was found in the requested languages."
+    return "transcript_request_failed", detail
+
+
 def retrieve_video_transcript(youtube, video_id: str, output_dir="transcripts") -> dict:
     """Try the public transcript library only; never call YouTube captions download.
 
-    The YouTube client parameter is retained for backwards compatibility. If public
-    captions are unavailable or the runner is blocked, provide an approved transcript
-    file separately. Metadata-only AI drafts must remain explicitly provisional.
+    The YouTube client parameter is retained for backwards compatibility. Public
+    transcript access may be blocked on cloud-hosted runner IPs. In that case, an
+    approved transcript file is the supported fallback; no video/audio is downloaded.
     """
     del youtube
     output = Path(output_dir) / f"{video_id}.txt"
@@ -40,24 +59,31 @@ def retrieve_video_transcript(youtube, video_id: str, output_dir="transcripts") 
         if saved["status"] == "available":
             saved.update({"source": "youtube_transcript_api_public_fallback",
                           "attempts": attempts})
+            metadata_path.parent.mkdir(parents=True, exist_ok=True)
             metadata_path.write_text(
                 json.dumps(saved, ensure_ascii=False, indent=2), encoding="utf-8")
             return saved
     except Exception as exc:
+        category, explanation = _diagnose_transcript_error(exc)
         attempts.append({
             "method": "youtube_transcript_api_public_fallback",
-            "error": f"{type(exc).__name__}: {exc}"[:400]
+            "category": category,
+            "error": f"{type(exc).__name__}: {exc}"[:400],
+            "explanation": explanation
         })
 
+    category = attempts[0]["category"] if attempts else "empty_transcript"
+    message = (
+        attempts[0]["explanation"] if attempts else
+        "The public transcript endpoint returned no transcript text."
+    )
     result = {
         "status": "unavailable",
         "source": None,
+        "category": category,
         "attempts": attempts,
-        "message": (
-            "Public transcript retrieval was unavailable. Supply an approved source "
-            "transcript file to enable transcript-grounded preparation. No YouTube "
-            "caption download or write-scope API was called."
-        )
+        "message": message + " Place an approved UTF-8 transcript at "
+                   + f"transcripts/{video_id}.txt to enable transcript-grounded preparation."
     }
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
     metadata_path.write_text(
