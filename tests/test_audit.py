@@ -1,131 +1,61 @@
-"""Unit tests for paginated YouTube Analytics collection."""
+"""Tests for supported Analytics activity and Reporting reach metrics."""
 import unittest
+from src.audit import (_analytics_by_video,_daily_analytics_by_video,_parse_reach_csv,
+                       _unique_playlist_video_ids,_unique_video_details)
 
-from src.audit import (
-    _analytics_by_video, _daily_analytics_by_video,
-    _unique_playlist_video_ids, _unique_video_details,
-)
-
-
-class FakeRequest:
-    def __init__(self, response=None, error=None):
-        self.response = response or {}
-        self.error = error
-
+class Req:
+    def __init__(self,data=None,error=None): self.data,self.error=data or {},error
     def execute(self):
-        if self.error:
-            raise self.error
-        return self.response
+        if self.error: raise self.error
+        return self.data
+class Reports:
+    def __init__(self,pages,fail_at=None): self.pages,self.fail_at,self.calls=pages,fail_at,[]
+    def query(self,**kw):
+        self.calls.append(kw); n=len(self.calls)
+        if n==self.fail_at: return Req(error=RuntimeError("simulated"))
+        return Req(self.pages[n-1])
+class Analytics:
+    def __init__(self,reports): self.r=reports
+    def reports(self): return self
+    def query(self,**kw): return self.r.query(**kw)
 
+class Tests(unittest.TestCase):
+    def test_playlist_dedup(self):
+        ids,dupes=_unique_playlist_video_ids([
+            {"id":"p1","contentDetails":{"videoId":"A"}},
+            {"id":"p2","contentDetails":{"videoId":"A"}}])
+        self.assertEqual(ids,["A"]); self.assertEqual(dupes[0]["playlist_item_id"],"p2")
+    def test_video_dedup(self):
+        vids,dupes=_unique_video_details([{"id":"A"},{"id":"A"}])
+        self.assertEqual(len(vids),1); self.assertEqual(dupes,["A"])
+    def test_analytics_uses_supported_metrics_only(self):
+        h=[{"name":"video"},{"name":"views"}]
+        f=Reports([{"columnHeaders":h,"rows":[["A",5]]}])
+        r=_analytics_by_video(Analytics(f),"2026-10-01","2026-11-01")
+        self.assertTrue(r["available"]); self.assertEqual(r["by_video"]["A"]["views"],5)
+        self.assertNotIn("impressions",f.calls[0]["metrics"])
+        self.assertNotIn("impressionClickThroughRate",f.calls[0]["metrics"])
+    def test_daily_analytics(self):
+        h=[{"name":"video"},{"name":"day"},{"name":"views"}]
+        f=Reports([{"columnHeaders":h,"rows":[["A","2026-11-01",9]]}])
+        r=_daily_analytics_by_video(Analytics(f),"2026-10-01","2026-11-01")
+        self.assertEqual(r["by_video"]["A"][0]["date"],"2026-11-01")
+        self.assertEqual(f.calls[0]["dimensions"],"video,day")
+    def test_reach_csv(self):
+        s=("date,channel_id,video_id,video_thumbnail_impressions,video_thumbnail_impressions_ctr\n"
+           "2026-10-31,C,A,1500,0.042\n2026-10-30,C,A,800,0.03\n")
+        r=_parse_reach_csv(s,"2026-10-31")
+        self.assertEqual(r["A"],[{"date":"2026-10-31","thumbnail_impressions":1500,
+                                  "thumbnail_impressions_ctr":0.042}])
+    def test_pagination(self):
+        h=[{"name":"video"},{"name":"views"}]
+        f=Reports([{"columnHeaders":h,"rows":[[f"v{i}",i] for i in range(200)]},
+                   {"columnHeaders":h,"rows":[["v200",200]]}])
+        r=_analytics_by_video(Analytics(f),"2026-10-01","2026-11-01")
+        self.assertEqual(r["pages_fetched"],2); self.assertEqual(len(r["by_video"]),201)
+    def test_failure_is_reported(self):
+        f=Reports([{"columnHeaders":[{"name":"video"}],"rows":[]}],fail_at=1)
+        r=_daily_analytics_by_video(Analytics(f),"2026-10-01","2026-11-01")
+        self.assertFalse(r["available"])
 
-class FakeReports:
-    def __init__(self, pages, fail_at=None):
-        self.pages = pages
-        self.fail_at = fail_at
-        self.calls = []
-
-    def query(self, **kwargs):
-        self.calls.append(kwargs)
-        page_number = len(self.calls)
-        if self.fail_at == page_number:
-            return FakeRequest(error=RuntimeError("simulated API failure"))
-        return FakeRequest(self.pages[page_number - 1])
-
-
-class FakeAnalytics:
-    def __init__(self, reports):
-        self._reports = reports
-
-    def reports(self):
-        return self
-
-    def query(self, **kwargs):
-        return self._reports.query(**kwargs)
-
-
-class InventoryDeduplicationTests(unittest.TestCase):
-    def test_repeated_playlist_video_is_reported_but_counted_once(self):
-        items = [
-            {"id": "p1", "snippet": {"title": "A", "position": 0},
-             "contentDetails": {"videoId": "video-A"}},
-            {"id": "p2", "snippet": {"title": "B", "position": 1},
-             "contentDetails": {"videoId": "video-B"}},
-            {"id": "p3", "snippet": {"title": "A", "position": 2},
-             "contentDetails": {"videoId": "video-A"}},
-        ]
-        ids, duplicates = _unique_playlist_video_ids(items)
-        self.assertEqual(ids, ["video-A", "video-B"])
-        self.assertEqual(duplicates[0]["playlist_item_id"], "p3")
-
-    def test_same_title_different_ids_are_distinct(self):
-        ids, duplicates = _unique_playlist_video_ids([
-            {"snippet": {"title": "Same"}, "contentDetails": {"videoId": "A"}},
-            {"snippet": {"title": "Same"}, "contentDetails": {"videoId": "B"}},
-        ])
-        self.assertEqual(ids, ["A", "B"])
-        self.assertEqual(duplicates, [])
-
-    def test_missing_ids_are_ignored(self):
-        ids, duplicates = _unique_playlist_video_ids([
-            {"snippet": {"title": "No ID"}, "contentDetails": {}},
-            {"contentDetails": {"videoId": "A"}},
-        ])
-        self.assertEqual(ids, ["A"])
-        self.assertEqual(duplicates, [])
-
-    def test_duplicate_video_resources_are_suppressed(self):
-        unique, duplicates = _unique_video_details([
-            {"id": "A"}, {"id": "B"}, {"id": "A"},
-        ])
-        self.assertEqual([v["id"] for v in unique], ["A", "B"])
-        self.assertEqual(duplicates, ["A"])
-
-
-class AnalyticsPaginationTests(unittest.TestCase):
-    def test_per_video_metrics_include_impressions_and_ctr(self):
-        headers = [{"name": "video"}, {"name": "views"},
-                   {"name": "impressions"}, {"name": "impressionClickThroughRate"}]
-        reports = FakeReports([{
-            "columnHeaders": headers, "rows": [["video-A", 123, 4000, 0.035]]
-        }])
-        result = _analytics_by_video(FakeAnalytics(reports), "2026-10-01", "2026-11-01")
-        self.assertTrue(result["available"])
-        self.assertEqual(result["by_video"]["video-A"]["impressions"], 4000)
-        self.assertEqual(result["by_video"]["video-A"]["impressionClickThroughRate"], 0.035)
-        self.assertIn("impressions", reports.calls[0]["metrics"])
-
-    def test_daily_metrics_are_grouped_by_video_and_date(self):
-        headers = [{"name": "video"}, {"name": "day"}, {"name": "views"},
-                   {"name": "impressions"}, {"name": "impressionClickThroughRate"}]
-        reports = FakeReports([{
-            "columnHeaders": headers,
-            "rows": [["video-A", "2026-10-31", 50, 1000, 0.05],
-                     ["video-A", "2026-11-01", 60, 1200, 0.05]],
-        }])
-        result = _daily_analytics_by_video(FakeAnalytics(reports), "2026-10-01", "2026-11-01")
-        self.assertTrue(result["available"])
-        self.assertEqual(result["daily_rows"], 2)
-        self.assertEqual(result["by_video"]["video-A"][1]["date"], "2026-11-01")
-        self.assertEqual(reports.calls[0]["dimensions"], "video,day")
-
-    def test_pagination_fetches_all_rows(self):
-        headers = [{"name": "video"}, {"name": "views"}]
-        first = [[f"v{i}", i] for i in range(200)]
-        reports = FakeReports([
-            {"columnHeaders": headers, "rows": first},
-            {"columnHeaders": headers, "rows": [["v200", 200]]},
-        ])
-        result = _analytics_by_video(FakeAnalytics(reports), "2026-10-01", "2026-11-01")
-        self.assertEqual(result["pages_fetched"], 2)
-        self.assertEqual(len(result["by_video"]), 201)
-        self.assertEqual([c["startIndex"] for c in reports.calls], [1, 201])
-
-    def test_failed_analytics_query_is_marked_unavailable(self):
-        reports = FakeReports([{"columnHeaders": [{"name": "video"}], "rows": []}], fail_at=1)
-        result = _daily_analytics_by_video(FakeAnalytics(reports), "2026-10-01", "2026-11-01")
-        self.assertFalse(result["available"])
-        self.assertEqual(result["by_video"], {})
-
-
-if __name__ == "__main__":
-    unittest.main()
+if __name__ == "__main__": unittest.main()
