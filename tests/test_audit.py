@@ -1,7 +1,11 @@
 """Unit tests for paginated YouTube Analytics collection."""
 import unittest
 
-from src.audit import _analytics_by_video, _unique_playlist_video_ids
+from src.audit import (
+    _analytics_by_video,
+    _unique_playlist_video_ids,
+    _unique_video_details,
+)
 
 
 class FakeRequest:
@@ -95,6 +99,21 @@ class PlaylistVideoDeduplicationTests(unittest.TestCase):
 
         self.assertEqual(unique_ids, ["video-A"])
         self.assertEqual(duplicates, [])
+
+
+class VideoInventoryDeduplicationTests(unittest.TestCase):
+    def test_repeated_video_resource_is_only_in_inventory_once(self):
+        videos = [
+            {"id": "video-A", "snippet": {"title": "Bhajan Bhajan aur sirf Bhajan"}},
+            {"id": "video-B", "snippet": {"title": "Another video"}},
+            {"id": "video-A", "snippet": {"title": "Bhajan Bhajan aur sirf Bhajan"}},
+        ]
+
+        unique_videos, duplicate_ids = _unique_video_details(videos)
+
+        self.assertEqual([video["id"] for video in unique_videos], ["video-A", "video-B"])
+        self.assertEqual(duplicate_ids, ["video-A"])
+        self.assertEqual(len(unique_videos), 2)
 
 
 class AnalyticsPaginationTests(unittest.TestCase):

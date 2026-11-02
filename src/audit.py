@@ -46,6 +46,27 @@ def _unique_playlist_video_ids(playlist_items: list[dict]) -> tuple[list[str], l
     return unique_ids, duplicate_entries
 
 
+def _unique_video_details(video_details: list[dict]) -> tuple[list[dict], list[str]]:
+    """Keep one API video resource per exact YouTube video ID.
+
+    Repeated playlist-item references are diagnostics, not extra uploaded
+    videos. This second guard also prevents duplicate inventory rows if an API
+    response or a future code path supplies repeated video resources.
+    """
+    unique_videos = []
+    seen_ids = set()
+    duplicate_ids = []
+    for video in video_details:
+        video_id = video.get("id")
+        if not video_id or video_id in seen_ids:
+            if video_id:
+                duplicate_ids.append(video_id)
+            continue
+        seen_ids.add(video_id)
+        unique_videos.append(video)
+    return unique_videos, duplicate_ids
+
+
 def _analytics_by_video(analytics, start_date: str, end_date: str) -> dict:
     """Fetch every available per-video Analytics row, not just the first 200."""
     metrics = (
@@ -142,6 +163,10 @@ def run_channel_audit(youtube, analytics, max_videos: int = 5000,
         ).execute()
         video_details.extend(response.get("items", []))
 
+    # Defensive de-duplication at the final inventory boundary. Playlist item
+    # IDs and video IDs are different concepts; only video IDs define videos.
+    video_details, duplicate_video_resource_ids = _unique_video_details(video_details)
+
     today = date.today()
     start = today - timedelta(days=90)
     analytics_result = _analytics_by_video(
@@ -178,6 +203,7 @@ def run_channel_audit(youtube, analytics, max_videos: int = 5000,
 
     return {
         "report_type": "read_only_channel_audit",
+        "report_schema_version": 2,
         "period": {"start": start.isoformat(), "end": today.isoformat()},
         "channel": {
             "id": channel.get("id"),
@@ -191,8 +217,18 @@ def run_channel_audit(youtube, analytics, max_videos: int = 5000,
         "videos_with_90_day_analytics": analytics_result["videos_with_analytics"],
         "playlist_items_scanned": len(playlist_items),
         "unique_video_ids": len(ids),
+        "inventory_video_count": len(videos),
+        # These count repeated playlist-item references, not duplicate videos.
+        "duplicate_uploads_playlist_entry_count": len(duplicate_playlist_entries),
+        "duplicate_uploads_playlist_entries": duplicate_playlist_entries,
+        "duplicate_uploads_playlist_entries_note": (
+            "Repeated references in the channel uploads playlist. They are not "
+            "additional uploaded videos and must not be treated as videos to delete."
+        ),
+        # Retain legacy field names for consumers of earlier report versions.
         "duplicate_playlist_entries_count": len(duplicate_playlist_entries),
         "duplicate_playlist_entries": duplicate_playlist_entries,
+        "duplicate_video_resource_ids_suppressed": duplicate_video_resource_ids,
         "videos": videos,
         "safety": {
             "read_only": True,
