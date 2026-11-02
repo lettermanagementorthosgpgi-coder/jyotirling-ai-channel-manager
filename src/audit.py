@@ -17,32 +17,67 @@ def _paged_request(service, method: str, **kwargs):
 
 
 def _analytics_by_video(analytics, start_date: str, end_date: str) -> dict:
+    """Fetch every available per-video Analytics row, not just the first 200."""
     metrics = (
         "views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,"
         "likes,comments,shares,subscribersGained,subscribersLost"
     )
-    try:
-        response = analytics.reports().query(
-            ids="channel==MINE",
-            startDate=start_date,
-            endDate=end_date,
-            metrics=metrics,
-            dimensions="video",
-            sort="-views",
-            maxResults=200,
-        ).execute()
-    except Exception as exc:
-        return {"available": False, "reason": str(exc), "by_video": {}}
-
-    headers = [h.get("name") for h in response.get("columnHeaders", [])]
-    rows = response.get("rows", [])
+    page_size = 200
+    start_index = 1
+    pages_fetched = 0
+    headers = None
     by_video = {}
-    for row in rows:
-        record = dict(zip(headers, row))
-        video_id = record.pop("video", None)
-        if video_id:
-            by_video[video_id] = record
-    return {"available": True, "by_video": by_video}
+
+    try:
+        while True:
+            response = analytics.reports().query(
+                ids="channel==MINE",
+                startDate=start_date,
+                endDate=end_date,
+                metrics=metrics,
+                dimensions="video",
+                sort="-views",
+                maxResults=page_size,
+                startIndex=start_index,
+            ).execute()
+            pages_fetched += 1
+
+            if headers is None:
+                headers = [
+                    header.get("name")
+                    for header in response.get("columnHeaders", [])
+                ]
+
+            rows = response.get("rows", [])
+            for row in rows:
+                record = dict(zip(headers, row))
+                video_id = record.pop("video", None)
+                if video_id:
+                    by_video[video_id] = record
+
+            # Analytics API uses one-based startIndex pagination. A short page
+            # means there are no more rows; an exact 200-row page is followed
+            # by another request to check for remaining results.
+            if len(rows) < page_size:
+                break
+            start_index += len(rows)
+
+    except Exception as exc:
+        # Do not present an incomplete multi-page result as a complete report.
+        return {
+            "available": False,
+            "reason": str(exc),
+            "by_video": {},
+            "pages_fetched": pages_fetched,
+            "videos_with_analytics": 0,
+        }
+
+    return {
+        "available": True,
+        "by_video": by_video,
+        "pages_fetched": pages_fetched,
+        "videos_with_analytics": len(by_video),
+    }
 
 
 def run_channel_audit(youtube, analytics, max_videos: int = 5000,
@@ -126,6 +161,8 @@ def run_channel_audit(youtube, analytics, max_videos: int = 5000,
         },
         "analytics_available": analytics_result["available"],
         "analytics_note": analytics_result.get("reason"),
+        "analytics_pages_fetched": analytics_result["pages_fetched"],
+        "videos_with_90_day_analytics": analytics_result["videos_with_analytics"],
         "videos": videos,
         "safety": {
             "read_only": True,
