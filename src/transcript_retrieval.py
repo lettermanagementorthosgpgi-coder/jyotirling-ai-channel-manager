@@ -76,7 +76,7 @@ def retrieve_video_transcript(youtube, video_id: str, output_dir="transcripts") 
         fetched = api.fetch(video_id, languages=["hi", "en", "sa", "ur", "bn"])
         segments = getattr(fetched, "snippets", fetched)
         text = "\\n".join(
-            str(getattr(segment, "text", segment.get("text", "") if isinstance(segment, dict) else ""))
+            str(segment.get("text", "") if isinstance(segment, dict) else getattr(segment, "text", ""))
             for segment in segments
         )
         saved = _write_transcript(output, text)
