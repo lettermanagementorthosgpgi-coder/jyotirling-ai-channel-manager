@@ -51,7 +51,7 @@ class AIPipelineTests(unittest.TestCase):
         self.assertEqual(item["ai_preparation"]["stages"]["AI-1_data_analysis"]["provider"], "openai")
         self.assertEqual(item["ai_preparation"]["stages"]["AI-2_youtube_seo_and_thumbnail_brief"]["provider"], "gemini")
         self.assertEqual(item["ai_preparation"]["stages"]["AI-3_cross_review"]["provider"], "openai")
-        self.assertEqual(item["ai_preparation"]["thumbnail"]["status"], "thumbnail_preview_ready_author_photo_missing")
+        self.assertEqual(item["ai_preparation"]["thumbnail"]["status"], "thumbnail_ready_for_user_review")
         self.assertTrue(item["ai_preparation"]["thumbnail"]["file"].endswith("_thumbnail.png"))
         self.assertIn("openai", calls)
         self.assertIn("gemini", calls)
@@ -67,9 +67,9 @@ class AIPipelineTests(unittest.TestCase):
         def fake_image(provider, prompt):
             return b"\x89PNG\r\n\x1a\nfake-png", "gemini-image-test"
 
-        def fake_compose(background, output, title, photo):
+        def fake_compose(background, output, title, **kwargs):
             Path(output).write_bytes(b"composed-preview")
-            return {"file": str(output), "author_photo_included": False,
+            return {"file": str(output), "author_photo_included": True,
                     "dimensions": "1280x720"}
 
         with tempfile.TemporaryDirectory() as tmp:
