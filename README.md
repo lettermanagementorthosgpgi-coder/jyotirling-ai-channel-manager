@@ -73,7 +73,7 @@ No Anthropic/Claude key is required or used by this workflow. Never paste keys i
 
 ### Thumbnail branding asset
 
-The workflow reuses the existing master thumbnail `karmsanyasyog.jpeg` and layout logic from the user's separate public repository `jyotirlingshivmathlive/live_scheduler.py`. It downloads that master at run time, preserves the original portrait, fixed header, author plaque and frame, replaces only the designated story-art window for Shiv Puran, and updates the episode hook/chapter/footer text using the legacy coordinates and Devanagari typography. It then saves a 1280×720 review thumbnail. No separate author-photo upload is needed while the master image remains available at its source repository. Generated thumbnails are saved as workflow artifacts for review; nothing is uploaded to or changed on YouTube automatically.
+The master thumbnail `karmsanyasyog.jpeg` is bundled inside this repository at `assets/karmsanyasyog.jpeg`, copied from the existing `jyotirlingshivmathlive` repository. The composer follows the legacy `live_scheduler.py` layout: it preserves the master portrait, fixed header, author plaque and frame; Bhagavad Gita retains the master Krishna-Arjuna artwork, while Shiv Puran replaces only the original story-art window and updates the episode hook, chapter plaque and footer. No runtime dependency on the other repository and no separate author-photo upload are required. Generated thumbnails are saved as workflow artifacts for review; nothing is uploaded to or changed on YouTube automatically.
 
 ### Transcript grounding
 
