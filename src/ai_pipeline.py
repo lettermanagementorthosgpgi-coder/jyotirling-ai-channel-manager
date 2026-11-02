@@ -7,6 +7,7 @@ import sqlite3
 from pathlib import Path
 
 from .ai_providers import available_providers, generate, generate_thumbnail_background
+from .thumbnail_composer import compose_thumbnail
 
 ROLES = [
     ("AI-1_data_analysis",
@@ -184,6 +185,29 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                     if thumbnail_result["status"] == "not_attempted":
                         thumbnail_result = {"status": "image_generation_pending",
                                              "provider_attempts": image_errors}
+
+            if thumbnail_result.get("file") and Path(thumbnail_result["file"]).exists():
+                try:
+                    photo_path = Path("assets") / "author.jpeg"
+                    composed_path = thumbnail_dir / f"{_safe_id(vid)}_thumbnail.png"
+                    composition = compose_thumbnail(
+                        thumbnail_result["file"], composed_path,
+                        item.get("source_title") or item.get("title") or "विशेष आध्यात्मिक प्रवचन",
+                        photo_path)
+                    thumbnail_result.update(composition)
+                    thumbnail_result["status"] = (
+                        "thumbnail_ready_for_user_review" if composition["author_photo_included"]
+                        else "thumbnail_preview_ready_author_photo_missing")
+                    if not composition["author_photo_included"]:
+                        thumbnail_result["note"] = (
+                            "Preview includes channel header, topic and speaker text. "
+                            "Add the original author photo at assets/author.jpeg to complete the fixed branded layout.")
+                except Exception as exc:
+                    thumbnail_result = {
+                        "status": "background_ready_composition_failed",
+                        "background_file": thumbnail_result.get("file"),
+                        "composition_error": f"{type(exc).__name__}: {exc}"[:500]
+                    }
 
             item["ai_preparation"] = {
                 "status": "ready_for_user_review" if complete else "pending_provider_or_retry",
