@@ -216,7 +216,7 @@ def run_channel_audit(youtube, analytics, max_videos: int = 5000,
         "analytics_pages_fetched": analytics_result["pages_fetched"],
         "videos_with_90_day_analytics": analytics_result["videos_with_analytics"],
         "playlist_items_scanned": len(playlist_items),
-        "unique_video_ids": len(videos),
+        "unique_video_ids": len(ids),
         "inventory_video_count": len(videos),
         # These count repeated playlist-item references, not duplicate videos.
         "duplicate_uploads_playlist_entry_count": len(duplicate_playlist_entries),
