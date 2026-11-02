@@ -1,10 +1,11 @@
-"""Read-only channel audit entry point."""
+"""Read-only channel audit and approval-first AI preparation entry point."""
 import json
 from datetime import datetime
 from pathlib import Path
 from src.youtube_client import build_youtube_services
 from src.audit import run_channel_audit
 from src.preparation_queue import build_new_upload_preparation_queue
+from src.ai_pipeline import run_ai_preparation
 
 ROOT = Path(__file__).resolve().parent
 
@@ -26,13 +27,27 @@ def main():
         result["videos"],
         start_date=prep.get("start_date_local", "2026-11-02"),
         timezone=config.get("timezone", "Asia/Kolkata"))
-    result["new_upload_preparation"] = queue
+    ai_result = run_ai_preparation(queue, ROOT / ".state" / "preparation.sqlite",
+                                   ROOT / "transcripts")
+    result["new_upload_preparation"] = {
+        "start_date_local": queue["start_date_local"],
+        "timezone": queue["timezone"],
+        "videos_in_queue": queue["videos_in_queue"],
+        "items": ai_result["items"],
+        "providers_configured": ai_result["providers_configured"],
+        "note": ai_result["note"]
+    }
+    result["ai_preparation_summary"] = {
+        "providers_configured": ai_result["providers_configured"],
+        "videos_processed_or_pending": ai_result["videos_processed_or_pending"]
+    }
 
     out = report_dir / f"channel_audit_{stamp}.json"
     out.write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding="utf-8")
     print(f"Audit complete. Report: {out}")
     print(f"Videos inventoried: {len(result['videos'])}")
-    print(f"New-upload preparation queue: {queue['videos_in_queue']} videos since {queue['start_date_local']}")
+    print(f"New-upload queue: {queue['videos_in_queue']} videos since {queue['start_date_local']}")
+    print(f"AI providers configured: {', '.join(ai_result['providers_configured']) or 'none'}")
     print("READ-ONLY MODE: no channel metadata, thumbnails, uploads or publications were changed.")
 
 
