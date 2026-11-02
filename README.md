@@ -50,6 +50,33 @@ This is still a read-only audit. No YouTube channel metadata, videos, thumbnails
 - The workflow remains read-only: it does not alter titles, descriptions, tags, thumbnails, or publish anything. All implementation remains pending the user's explicit approval.
 - The report's queue is regenerated from the channel inventory each run, so videos uploaded earlier on the start date are still included in later runs.
 
+
+## Three-provider AI preparation
+
+The hourly workflow can call three model APIs from the server side:
+
+- AI-1 data analysis: OpenAI API (default model: `gpt-6-luna`)
+- AI-2 YouTube SEO drafting: Google Gemini API (default model: `gemini-3.8-flash`)
+- AI-3 independent review: Anthropic Claude API (default model: `claude-sonnet-5-5`)
+
+Each role has a fallback rotation through the other configured providers if its preferred provider fails. Successful stages are saved in a SQLite preparation ledger, cached between scheduled workflow runs, and resumed rather than needlessly repeated. If no key is configured, the item remains blocked/pending; it is never marked complete.
+
+### Required provider secrets
+
+Add whichever provider keys you want to use under **Settings → Secrets and variables → Actions → New repository secret**:
+
+- `OPENAI_API_KEY`
+- `GEMINI_API_KEY`
+- `ANTHROPIC_API_KEY`
+
+You can configure one, two, or all three. For the full three-AI review and fallback rotation, configure all three. Each API is billed by its provider according to the account's plan and usage; this repository does not include API credits. Never paste keys into chat, source code, issues, or commits.
+
+### Transcript grounding
+
+If a verified transcript is available, place it in `transcripts/<VIDEO_ID>.txt` in the runner's workspace before processing. When no transcript is available, the AI must mark its package as **metadata-only / provisional** and must not invent what was spoken. The current audit does not have permission to download captions automatically. Transcript access is a separate integration requirement.
+
+AI outputs are drafts for the user's review. No title, description, tag, thumbnail, upload, or publication is changed automatically.
+
 ## Approved Shorts Manager requirements
 
 The planned Shorts Manager must:
