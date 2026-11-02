@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from src.ai_pipeline import run_ai_preparation
@@ -27,13 +28,19 @@ class AIPipelineTests(unittest.TestCase):
                 raise RuntimeError("simulated image outage")
             return b"\x89PNG\r\n\x1a\nfake-png", "gemini-image-test"
 
+        def fake_compose(background, output, title, photo):
+            Path(output).write_bytes(b"composed-preview")
+            return {"file": str(output), "author_photo_included": False,
+                    "dimensions": "1280x720"}
+
         with tempfile.TemporaryDirectory() as tmp:
             with patch.dict(os.environ, {
                 "OPENAI_API_KEY": "test",
                 "GEMINI_API_KEY": "test",
                 "ANTHROPIC_API_KEY": "must-not-be-used"
             }), patch("src.ai_pipeline.generate", side_effect=fake_generate), \
-                 patch("src.ai_pipeline.generate_thumbnail_background", side_effect=fake_image):
+                 patch("src.ai_pipeline.generate_thumbnail_background", side_effect=fake_image), \
+                 patch("src.ai_pipeline.compose_thumbnail", side_effect=fake_compose):
                 result = run_ai_preparation(
                     queue, os.path.join(tmp, "state.sqlite"),
                     os.path.join(tmp, "transcripts"), os.path.join(tmp, "thumbnails"))
@@ -44,7 +51,7 @@ class AIPipelineTests(unittest.TestCase):
         self.assertEqual(item["ai_preparation"]["stages"]["AI-1_data_analysis"]["provider"], "openai")
         self.assertEqual(item["ai_preparation"]["stages"]["AI-2_youtube_seo_and_thumbnail_brief"]["provider"], "gemini")
         self.assertEqual(item["ai_preparation"]["stages"]["AI-3_cross_review"]["provider"], "openai")
-        self.assertEqual(item["ai_preparation"]["thumbnail"]["status"], "background_ready_needs_brand_composition")
+        self.assertEqual(item["ai_preparation"]["thumbnail"]["status"], "thumbnail_preview_ready_author_photo_missing")
         self.assertTrue(os.path.exists(item["ai_preparation"]["thumbnail"]["file"]))
         self.assertIn("openai", calls)
         self.assertIn("gemini", calls)
@@ -60,10 +67,16 @@ class AIPipelineTests(unittest.TestCase):
         def fake_image(provider, prompt):
             return b"\x89PNG\r\n\x1a\nfake-png", "gemini-image-test"
 
+        def fake_compose(background, output, title, photo):
+            Path(output).write_bytes(b"composed-preview")
+            return {"file": str(output), "author_photo_included": False,
+                    "dimensions": "1280x720"}
+
         with tempfile.TemporaryDirectory() as tmp:
             with patch.dict(os.environ, {"GEMINI_API_KEY": "test"}, clear=True), \
                  patch("src.ai_pipeline.generate", side_effect=fake_generate), \
-                 patch("src.ai_pipeline.generate_thumbnail_background", side_effect=fake_image):
+                 patch("src.ai_pipeline.generate_thumbnail_background", side_effect=fake_image), \
+                 patch("src.ai_pipeline.compose_thumbnail", side_effect=fake_compose):
                 result = run_ai_preparation(
                     queue, os.path.join(tmp, "state.sqlite"),
                     os.path.join(tmp, "transcripts"), os.path.join(tmp, "thumbnails"))
