@@ -24,7 +24,6 @@ def _post(url, headers, body, timeout=120):
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:1000]
-        # Never include request headers or credentials in an error message.
         raise ProviderError(f"HTTP {exc.code}: {detail}") from exc
     except Exception as exc:
         raise ProviderError(f"Request failed: {type(exc).__name__}: {exc}") from exc
@@ -76,6 +75,26 @@ def generate(provider, prompt):
     raise ProviderError(f"Unknown provider: {provider}")
 
 
+def _extract_gemini_image(data):
+    """Support documented Interactions API output_image and model_output steps."""
+    direct = data.get("output_image") or {}
+    if isinstance(direct, dict) and direct.get("data"):
+        return direct["data"]
+
+    for step in data.get("steps", []):
+        if not isinstance(step, dict) or step.get("type") != "model_output":
+            continue
+        for block in step.get("content", []):
+            if isinstance(block, dict) and block.get("type") == "image" and block.get("data"):
+                return block["data"]
+
+    # Defensive compatibility with older/alternate response envelopes.
+    for step in data.get("outputs", []):
+        if isinstance(step, dict) and step.get("type") == "image" and step.get("data"):
+            return step["data"]
+    return None
+
+
 def generate_thumbnail_background(provider, prompt):
     """Generate a 16:9 background image and return (bytes, model)."""
     if provider == "openai":
@@ -104,15 +123,7 @@ def generate_thumbnail_background(provider, prompt):
             "response_format": {"type": "image", "mime_type": "image/png",
                                 "aspect_ratio": "16:9", "image_size": "2K"}},
             timeout=240)
-        output_image = data.get("output_image") or {}
-        encoded = output_image.get("data")
-        if not encoded:
-            # Some responses expose image data inside output content blocks.
-            for step in data.get("outputs", []):
-                if isinstance(step, dict) and step.get("type") == "image":
-                    encoded = step.get("data")
-                    if encoded:
-                        break
+        encoded = _extract_gemini_image(data)
         if not encoded:
             raise ProviderError("Gemini image API returned no image data")
         return base64.b64decode(encoded), model
