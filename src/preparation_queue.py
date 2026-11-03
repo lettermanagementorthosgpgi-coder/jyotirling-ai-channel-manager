@@ -1,20 +1,23 @@
-"""Build a durable, read-only queue of videos published from the configured start date."""
+"""Build a durable, read-only queue of recent and explicitly selected videos."""
 from __future__ import annotations
 
 from datetime import datetime, date
 from zoneinfo import ZoneInfo
 
 
-def build_new_upload_preparation_queue(videos, start_date, timezone="Asia/Kolkata"):
-    """Return every public video published on/after start_date in local channel time.
+def build_new_upload_preparation_queue(videos, start_date, timezone="Asia/Kolkata",
+                                       include_video_ids=None):
+    """Queue public videos on/after start_date plus explicitly selected video IDs.
 
-    This deliberately prepares review records only. It never edits YouTube metadata,
-    downloads media, or uploads/publishes anything.
+    This prepares review records only. It never edits YouTube metadata, downloads
+    media, or uploads/publishes anything.
     """
     tz = ZoneInfo(timezone)
     cutoff = date.fromisoformat(start_date)
+    explicit_ids = set(include_video_ids or [])
     queue = []
     for video in videos:
+        video_id = video.get("video_id")
         published_at = video.get("published_at")
         if not published_at:
             continue
@@ -25,14 +28,16 @@ def build_new_upload_preparation_queue(videos, start_date, timezone="Asia/Kolkat
             published_local = published.astimezone(tz)
         except (TypeError, ValueError):
             continue
-        if published_local.date() < cutoff:
+        explicitly_selected = video_id in explicit_ids
+        if published_local.date() < cutoff and not explicitly_selected:
             continue
 
         queue.append({
-            "video_id": video.get("video_id"),
+            "video_id": video_id,
             "url": video.get("url"),
             "published_at": published_at,
             "published_local": published_local.isoformat(),
+            "included_by_explicit_id": explicitly_selected,
             "source_title": video.get("title"),
             "source_description": video.get("description"),
             "source_tags": video.get("tags", []),
@@ -73,6 +78,7 @@ def build_new_upload_preparation_queue(videos, start_date, timezone="Asia/Kolkat
     return {
         "start_date_local": start_date,
         "timezone": timezone,
+        "explicitly_included_video_ids": sorted(explicit_ids),
         "videos_in_queue": len(queue),
         "items": queue,
         "safety": {
