@@ -10,11 +10,11 @@ from .ai_providers import available_providers, generate, generate_thumbnail_back
 from .thumbnail_composer import compose_thumbnail
 
 ROLES = [
-    ("AI-1_data_analysis_v2",
+    ("AI-1_data_analysis",
      "Evidence priority: read the full transcript when available. If transcript_available is false or transcript text is empty, switch to DESCRIPTION-BASED FALLBACK and carefully analyze the existing video description and title instead. Identify the actual topic, sequence of events, named people, reasons, quotations and shlokas only when explicitly supported by the transcript. Where useful, cite short exact transcript phrases as evidence. Do not claim the transcript is missing when transcript_available is true and transcript text is supplied. Do not invent metrics or spoken content."),
-    ("AI-2_youtube_seo_and_thumbnail_brief_v2",
+    ("AI-2_youtube_seo_and_thumbnail_brief",
      "Use the full transcript as primary evidence when available; otherwise use the existing video description and title as the fallback evidence, and label all conclusions provisional/description-based. Prepare YouTube SEO: 3 title options, a complete Hindi-first description accurately summarizing what is actually spoken, relevant tags, hashtags, a concise Hindi thumbnail headline, and a detailed creative visual concept. Design the thumbnail freely from the transcript when available, otherwise from the description and title; do not force a pre-existing programme template or fixed layout. Mandatory thumbnail text: place JYOTIRLING SHIVMATH BARAULI LUCKNOW at the top centre; include the host's supplied real photograph on one side unchanged; prominently include exactly one programme label, SHIV MAHA PURAN for Shiv Puran content or BHAGVADGITA for Gita content; show the chapter number/name and chapter title together. AI chooses all other wording, imagery, colours, composition and placement based on the transcript."),
-    ("AI-3_cross_review_v2",
+    ("AI-3_cross_review",
      "Verify claims against the transcript when supplied; otherwise verify only against the existing title and description. State clearly whether the result is transcript-based or a provisional description-based fallback. Never claim a transcript was read when unavailable. Correct unsupported claims, policy risks, factual mistakes, keyword stuffing and weak packaging. Ensure the thumbnail concept grants creative freedom while retaining the mandatory channel header at top centre, unchanged real host photo on one side, correct programme label (SHIV MAHA PURAN or BHAGVADGITA), and chapter number/name together with chapter title. Return the final corrected package and a short change log.")
 ]
 
