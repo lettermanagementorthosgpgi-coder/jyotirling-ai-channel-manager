@@ -120,6 +120,11 @@ def _extract_gemini_image(data):
     return None
 
 
+def _truncate_utf8(text, max_bytes=2000):
+    """Truncate text to a UTF-8 byte limit without splitting a Unicode character."""
+    return text.encode("utf-8")[:max_bytes].decode("utf-8", errors="ignore")
+
+
 def _normalize_image_to_png(image_bytes):
     """Normalize provider image bytes to PNG for the downstream composer."""
     try:
@@ -178,7 +183,7 @@ def generate_thumbnail_background(provider, prompt):
         data = _post(
             f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{model}",
             {"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-            {"prompt": prompt[:2048], "steps": 4},
+            {"prompt": _truncate_utf8(prompt, 2000), "steps": 4},
             timeout=240,
         )
         if not data.get("success", False):
