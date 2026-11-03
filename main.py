@@ -3,7 +3,9 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
-from src.youtube_client import build_youtube_services, run_write_permission_smoke_test
+from src.youtube_client import build_youtube_services, run_write_permission_smoke_test, upload_one_thumbnail
+from src.ai_providers import available_providers, generate_thumbnail_background
+from src.thumbnail_composer import compose_thumbnail
 from src.audit import run_channel_audit
 from src.preparation_queue import build_new_upload_preparation_queue
 from src.transcript_retrieval import retrieve_queue_transcripts
@@ -23,6 +25,62 @@ def main():
         max_videos=int(config["audit"]["max_videos_per_run"]),
         include_unlisted=bool(config["audit"]["include_unlisted"]),
         daily_analytics_days=int(config["audit"].get("daily_analytics_days",30)))
+
+    # Explicit opt-in only: generate and upload a thumbnail to the single approved Monday bhajan video.
+    if os.getenv("APPLY_MONDAY_BHAJAN_THUMBNAIL", "false").strip().lower() == "true":
+        target_video_id = "5uh8YV4UHLI"
+        target = next((v for v in result["videos"] if v.get("video_id") == target_video_id), None)
+        if not target:
+            raise RuntimeError(f"Safety stop: approved target video {target_video_id} was not found in the public channel inventory.")
+        source_title = str(target.get("title") or "")
+        source_description = str(target.get("description") or "")
+        if not any(word in (source_title + " " + source_description).lower()
+                   for word in ("bhajan", "bhajans", "भजन", "सोमवार", "somvar", "somvaar", "monday")):
+            raise RuntimeError("Safety stop: target video metadata does not identify it as a Monday/Shiva bhajan.")
+        providers = available_providers()
+        image_order = (["cloudflare"] if "cloudflare" in providers else []) + [p for p in providers if p != "cloudflare"]
+        if not image_order:
+            raise RuntimeError("No configured image-generation provider is available.")
+        prompt = (
+            "Create only cinematic devotional background artwork for a 16:9 YouTube thumbnail for a Monday Shiva bhajan. "
+            "Show a serene, majestic Lord Shiva devotional scene with luminous Himalayan/Kailash atmosphere, tasteful "
+            "trishul and subtle sacred light, visually rich but uncluttered. Respectful traditional Hindu iconography. "
+            "No words, no letters, no numbers, no logos, no watermarks, no banners, no captions, and no human portrait. "
+            "Keep clear central space for Hindi typography and reserve the left side for an existing author photo that "
+            "will be composited separately. Video title: " + source_title + ". Description: " + source_description[:1200]
+        )
+        image_path = ROOT / "thumbnails" / f"{target_video_id}_background.png"
+        image_path.parent.mkdir(parents=True, exist_ok=True)
+        image_errors = []
+        generated = False
+        for provider in image_order:
+            try:
+                image_bytes, image_model = generate_thumbnail_background(provider, prompt)
+                if not image_bytes.startswith(b"\\x89PNG\\r\\n\\x1a\\n"):
+                    raise ValueError("Image provider did not return PNG bytes")
+                image_path.write_bytes(image_bytes)
+                print(f"MONDAY BHAJAN BACKGROUND GENERATED: {provider} / {image_model}")
+                generated = True
+                break
+            except Exception as exc:
+                image_errors.append(f"{provider}: {type(exc).__name__}: {exc}"[:500])
+        if not generated:
+            raise RuntimeError("Thumbnail background generation failed: " + " | ".join(image_errors))
+        final_path = ROOT / "thumbnails" / f"{target_video_id}_thumbnail.png"
+        composition = compose_thumbnail(image_path, final_path, source_title, video=target)
+        if composition.get("programme_template") != "bhajan":
+            raise RuntimeError("Safety stop: target did not resolve to the dedicated Shiva bhajan template.")
+        upload_result = upload_one_thumbnail(youtube, target_video_id, final_path)
+        result["single_video_thumbnail_upload"] = {
+            "status": "uploaded",
+            "video_id": target_video_id,
+            "video_url": f"https://www.youtube.com/watch?v={target_video_id}",
+            "title": source_title,
+            "composition": composition,
+            "upload": upload_result,
+            "note": "Only this exact video ID was passed to thumbnails.set; no title, description, tags, or other videos were changed."
+        }
+        print("MONDAY BHAJAN THUMBNAIL UPLOAD: SUCCESS " + target_video_id)
 
     # Explicit opt-in only: update one public video's snippet with the exact same values,
     # then read it back to verify that YouTube accepted the write request.
