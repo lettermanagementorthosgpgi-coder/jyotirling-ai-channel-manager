@@ -11,11 +11,11 @@ from .thumbnail_composer import compose_thumbnail
 
 ROLES = [
     ("AI-1_data_analysis",
-     "Analyze the supplied video metadata and performance data. Identify the actual topic only when supported by transcript or description. Do not invent metrics or spoken content."),
+     "Read and analyze the supplied full transcript before using metadata. Identify the actual topic, sequence of events, named people, reasons, quotations and shlokas only when explicitly supported by the transcript. Where useful, cite short exact transcript phrases as evidence. Do not claim the transcript is missing when transcript_available is true and transcript text is supplied. Do not invent metrics or spoken content."),
     ("AI-2_youtube_seo_and_thumbnail_brief",
-     "Prepare YouTube SEO: 3 title options, a complete Hindi-first description, relevant tags, hashtags, a concise Hindi thumbnail headline, and a detailed visual concept. Respect the channel's fixed brand rules."),
+     "Use the transcript and AI-1 transcript-grounded analysis as primary evidence. Prepare YouTube SEO: 3 title options, a complete Hindi-first description accurately summarizing what is actually spoken, relevant tags, hashtags, a concise Hindi thumbnail headline, and a detailed visual concept. Respect the channel's fixed brand rules."),
     ("AI-3_cross_review",
-     "Independently review the analysis and SEO package. Correct unsupported claims, policy risks, factual mistakes, keyword stuffing and weak packaging. Return the final corrected package and a short change log.")
+     "Independently verify every factual claim in the analysis and SEO package against the supplied transcript. Explicitly confirm that the transcript was read; flag anything not supported by it. Correct unsupported claims, policy risks, factual mistakes, keyword stuffing and weak packaging. Return the final corrected package and a short change log.")
 ]
 
 
@@ -85,13 +85,14 @@ def _thumbnail_prompt(video, final_package):
 
 
 def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
-                       thumbnail_dir="thumbnails"):
+                       thumbnail_dir="thumbnails", force_reprocess_video_ids=None):
     state_path = Path(state_path)
     state_path.parent.mkdir(parents=True, exist_ok=True)
     transcript_dir = Path(transcript_dir)
     thumbnail_dir = Path(thumbnail_dir)
     providers = available_providers()
     result_items = []
+    force_reprocess_video_ids = set(force_reprocess_video_ids or [])
 
     with sqlite3.connect(state_path) as db:
         db.execute("""CREATE TABLE IF NOT EXISTS preparations_v2 (
@@ -106,6 +107,11 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
             transcript = transcript_file.read_text(encoding="utf-8") if transcript_file.exists() else None
             row = db.execute("SELECT stages_json FROM preparations_v2 WHERE video_id=?", (vid,)).fetchone()
             stages = json.loads(row[0]) if row else {}
+            if vid in force_reprocess_video_ids:
+                # Discard stale metadata-only drafts so every AI stage receives the current transcript.
+                stages = {}
+                db.execute("DELETE FROM preparations_v2 WHERE video_id=?", (vid,))
+                db.commit()
             errors = []
             if not providers:
                 item["ai_preparation"] = {
