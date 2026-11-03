@@ -124,9 +124,8 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                 elif index == 1:
                     preferred = "gemini"
                 else:
-                    # Prefer the other provider for an independent cross-review.
-                    second_stage_provider = stages.get(ROLES[1][0], {}).get("provider")
-                    preferred = "openai" if second_stage_provider == "gemini" else "gemini"
+                    # AI-3 is Cloudflare Workers AI: an independent third-provider cross-review.
+                    preferred = "cloudflare"
                 order = ([preferred] if preferred in providers else []) + [
                     p for p in providers if p != preferred
                 ]
