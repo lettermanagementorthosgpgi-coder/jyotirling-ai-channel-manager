@@ -161,9 +161,10 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                     thumbnail_result = {"status": "background_ready", "file": str(image_path)}
                 else:
                     final_package = stages[ROLES[2][0]]["output"]
-                    preferred_image_provider = stages[ROLES[2][0]]["provider"]
-                    image_order = ([preferred_image_provider] if preferred_image_provider in providers else []) + [
-                        p for p in providers if p != preferred_image_provider
+                    # Cloudflare FLUX is the primary thumbnail-background generator.
+                    # Keep other configured image providers as fallbacks.
+                    image_order = (["cloudflare"] if "cloudflare" in providers else []) + [
+                        p for p in providers if p != "cloudflare"
                     ]
                     image_errors = []
                     for provider in image_order:
