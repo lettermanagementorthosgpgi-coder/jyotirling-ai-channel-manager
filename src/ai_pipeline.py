@@ -76,7 +76,7 @@ def _thumbnail_prompt(video, final_package):
         "composition, colours, typography and text placement. This must look like a finished thumbnail, "
         "not a generic background. Mandatory: exact channel header JYOTIRLING SHIVMATH BARAULI LUCKNOW "
         "at the top centre; the programme label SHIV MAHA PURAN for Shiv Puran or BHAGVADGITA for Gita; "
-        "and chapter number/name together with the chapter title. Leave one side clean for the user's "
+        "and chapter number/name together with the chapter title. Leave the RIGHTMOST 28 percent clean and visually quiet for the user's "
         "real photograph to be placed unchanged by the compositor; do not invent or depict the host. "
         "All other design decisions are yours, grounded in the transcript. Never invent chapter details "
         "or add unrelated deities/characters. Source video title: " + title +
