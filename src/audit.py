@@ -4,13 +4,15 @@ import csv, io
 from datetime import date, timedelta
 
 
-def _paged_request(service, method: str, **kwargs):
+def _paged_request(service, method: str, collection_key="items", **kwargs):
+    """Read every page from APIs whose collection field may not be named items."""
     items, token = [], None
     while True:
         response = getattr(service, method)(**kwargs, pageToken=token).execute()
-        items.extend(response.get("items", []))
+        items.extend(response.get(collection_key, []))
         token = response.get("nextPageToken")
-        if not token: break
+        if not token:
+            break
     return items
 
 
@@ -72,19 +74,23 @@ def _analytics_by_video(analytics, start, end):
 
 
 def _daily_analytics_by_video(analytics, start, end):
+    """Fetch supported channel-level daily totals.
+
+    YouTube Analytics rejects the video,day dimension combination for this
+    query. The day dimension is requested alone, so these figures are channel
+    totals and are deliberately not attributed to individual videos.
+    """
     metrics = ("views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,"
                "likes,comments,shares,subscribersGained")
     try:
-        rows, pages = _query_all_rows(analytics, start, end, "video,day", metrics)
-        data = {}
-        for row in rows:
-            vid, day = row.pop("video", None), row.pop("day", None)
-            if vid and day: data.setdefault(vid, []).append({"date":day, **row})
-        return {"available":True,"by_video":data,"pages_fetched":pages,
-                "daily_rows":sum(len(v) for v in data.values())}
+        rows, pages = _query_all_rows(analytics, start, end, "day", metrics)
+        by_day = {row["day"]: {k: v for k, v in row.items() if k != "day"}
+                  for row in rows if row.get("day")}
+        return {"available":True,"by_day":by_day,"pages_fetched":pages,
+                "daily_rows":len(by_day),"scope":"channel"}
     except Exception as exc:
-        return {"available":False,"reason":str(exc),"by_video":{},
-                "pages_fetched":0,"daily_rows":0}
+        return {"available":False,"reason":str(exc),"by_day":{},
+                "pages_fetched":0,"daily_rows":0,"scope":"channel"}
 
 
 def _number(value):
@@ -111,14 +117,24 @@ def _daily_thumbnail_reach(reporting, session, start_date):
         return {"available":False,"reason":"Reporting API client unavailable.",
                 "by_video":{},"reports_read":0,"job_created":False}
     try:
-        jobs = _paged_request(reporting.jobs(), "list")
+        # Reporting API uses "jobs" and "reports" collection keys, not "items".
+        jobs = _paged_request(reporting.jobs(), "list", collection_key="jobs")
         job = next((j for j in jobs if j.get("reportTypeId")=="channel_reach_basic_a1"), None)
         created = False
         if job is None:
-            job = reporting.jobs().create(body={"reportTypeId":"channel_reach_basic_a1",
-                "name":"Jyotirling Shivmath daily thumbnail reach"}).execute()
-            created = True
-        reports = _paged_request(reporting.jobs(), "reports", jobId=job["id"])
+            try:
+                job = reporting.jobs().create(body={"reportTypeId":"channel_reach_basic_a1",
+                    "name":"Jyotirling Shivmath daily thumbnail reach"}).execute()
+                created = True
+            except Exception as create_error:
+                # A previously-created job can exist even if a list response was
+                # empty or delayed. Re-list before reporting a creation failure.
+                jobs = _paged_request(reporting.jobs(), "list", collection_key="jobs")
+                job = next((j for j in jobs if j.get("reportTypeId")=="channel_reach_basic_a1"), None)
+                if job is None:
+                    raise create_error
+        reports = _paged_request(reporting.jobs(), "reports",
+                                 collection_key="reports", jobId=job["id"])
         data, count = {}, 0
         for report in reports:
             url = report.get("downloadUrl")
@@ -167,7 +183,7 @@ def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=Fals
         sn, stats = video.get("snippet", {}), video.get("statistics", {})
         content, vid = video.get("contentDetails", {}), video.get("id")
         thumbs = sn.get("thumbnails", {})
-        daily_map = {r["date"]:r for r in daily["by_video"].get(vid, [])}
+        daily_map = {}
         for r in reach["by_video"].get(vid, []):
             daily_map.setdefault(r["date"], {"date":r["date"]}).update(
                 {k:v for k,v in r.items() if k!="date"})
@@ -193,6 +209,8 @@ def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=Fals
         "analytics_pages_fetched":aggregate["pages_fetched"],
         "videos_with_90_day_analytics":aggregate["videos_with_analytics"],
         "daily_analytics_available":daily["available"],"daily_analytics_note":daily.get("reason"),
+        "daily_analytics_scope":daily.get("scope","channel"),
+        "daily_channel_analytics":daily.get("by_day",{}),
         "daily_analytics_pages_fetched":daily["pages_fetched"],"daily_analytics_rows":daily["daily_rows"],
         "thumbnail_reach_available":reach["available"],"thumbnail_reach_note":reach.get("reason"),
         "thumbnail_reach_reports_read":reach["reports_read"],
