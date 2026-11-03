@@ -6,6 +6,7 @@
   "new_upload_preparation": {
     "start_date_local": "2026-11-02",
     "include_video_ids": ["AQzeCs48jhk"],
+    "force_reprocess_video_ids": ["AQzeCs48jhk"],
     "scope": "every public channel upload published on or after this date, plus explicitly listed review videos"
   },
   "approval": {"required_for_all_channel_changes":true,"required_for_upload_and_publish":true}
