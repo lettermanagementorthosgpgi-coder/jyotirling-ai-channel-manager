@@ -37,6 +37,8 @@ def available_providers():
         ("openai", "OPENAI_API_KEY"),
         ("gemini", "GEMINI_API_KEY"),
     ) if os.getenv(key)]
+    if os.getenv("CLOUDFLARE_API_TOKEN") and os.getenv("CLOUDFLARE_ACCOUNT_ID"):
+        providers.append("cloudflare")
 
 
 def generate(provider, prompt):
@@ -73,6 +75,24 @@ def generate(provider, prompt):
         result = "\n".join(p.get("text", "") for p in parts if p.get("text"))
         if not result:
             raise ProviderError("Gemini returned no text")
+        return result, model
+
+    if provider == "cloudflare":
+        token = os.getenv("CLOUDFLARE_API_TOKEN")
+        account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
+        if not token or not account_id:
+            raise ProviderError("CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are required")
+        model = os.getenv("CLOUDFLARE_MODEL", "@cf/meta/llama-3.2-1b-instruct")
+        data = _post(
+            f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{model}",
+            {"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            {"messages": [{"role": "system", "content": "You are the third independent reviewer for Jyotirling Shivmath. Be factual and careful."},
+                          {"role": "user", "content": prompt}]})
+        if not data.get("success", False):
+            raise ProviderError(f"Cloudflare Workers AI returned errors: {data.get('errors', [])}")
+        result = (data.get("result") or {}).get("response", "")
+        if not result:
+            raise ProviderError("Cloudflare Workers AI returned no text")
         return result, model
 
     raise ProviderError(f"Unknown provider: {provider}")
