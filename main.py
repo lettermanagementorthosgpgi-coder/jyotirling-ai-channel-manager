@@ -56,7 +56,7 @@ def main():
         for provider in image_order:
             try:
                 image_bytes, image_model = generate_thumbnail_background(provider, prompt)
-                if not image_bytes.startswith(b"\\x89PNG\\r\\n\\x1a\\n"):
+                if not image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
                     raise ValueError("Image provider did not return PNG bytes")
                 image_path.write_bytes(image_bytes)
                 print(f"MONDAY BHAJAN BACKGROUND GENERATED: {provider} / {image_model}")
