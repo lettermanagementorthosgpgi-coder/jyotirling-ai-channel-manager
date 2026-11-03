@@ -168,4 +168,23 @@ def generate_thumbnail_background(provider, prompt):
             raise ProviderError("Gemini image API returned no image data")
         return _normalize_image_to_png(base64.b64decode(encoded)), model
 
+    if provider == "cloudflare":
+        token = os.getenv("CLOUDFLARE_API_TOKEN")
+        account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
+        if not token or not account_id:
+            raise ProviderError("CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID are required")
+        model = os.getenv("CLOUDFLARE_IMAGE_MODEL", "@cf/black-forest-labs/flux-1-schnell")
+        # Workers AI FLUX.1 schnell returns a base64-encoded JPEG in result.image.
+        data = _post(
+            f"https://api.cloudflare.com/client/v4/accounts/{account_id}/ai/run/{model}",
+            {"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            {"prompt": prompt[:2048], "steps": 4},
+            timeout=240,
+        )
+        if not data.get("success", False):
+            raise ProviderError(f"Cloudflare Workers AI image generation returned errors: {data.get('errors', [])}")
+        encoded = (data.get("result") or {}).get("image")
+        if not encoded:
+            raise ProviderError("Cloudflare Workers AI returned no image data")
+        return _normalize_image_to_png(base64.b64decode(encoded)), model
     raise ProviderError(f"Unknown image provider: {provider}")
