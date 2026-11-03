@@ -33,12 +33,15 @@ def _post(url, headers, body, timeout=120):
 
 
 def available_providers():
-    return [name for name, key in (
-        ("openai", "OPENAI_API_KEY"),
-        ("gemini", "GEMINI_API_KEY"),
-    ) if os.getenv(key)]
+    providers = [
+        name for name, key in (
+            ("openai", "OPENAI_API_KEY"),
+            ("gemini", "GEMINI_API_KEY"),
+        ) if os.getenv(key)
+    ]
     if os.getenv("CLOUDFLARE_API_TOKEN") and os.getenv("CLOUDFLARE_ACCOUNT_ID"):
         providers.append("cloudflare")
+    return providers
 
 
 def generate(provider, prompt):
