@@ -10,12 +10,12 @@ from .ai_providers import available_providers, generate, generate_thumbnail_back
 from .thumbnail_composer import compose_thumbnail
 
 ROLES = [
-    ("AI-1_data_analysis",
-     "Read and analyze the supplied full transcript before using metadata. Identify the actual topic, sequence of events, named people, reasons, quotations and shlokas only when explicitly supported by the transcript. Where useful, cite short exact transcript phrases as evidence. Do not claim the transcript is missing when transcript_available is true and transcript text is supplied. Do not invent metrics or spoken content."),
-    ("AI-2_youtube_seo_and_thumbnail_brief",
-     "Use the full transcript and AI-1 transcript-grounded analysis as primary evidence. Prepare YouTube SEO: 3 title options, a complete Hindi-first description accurately summarizing what is actually spoken, relevant tags, hashtags, a concise Hindi thumbnail headline, and a detailed creative visual concept. Design the thumbnail concept freely from the actual transcript; do not force a pre-existing programme template or fixed layout. Mandatory thumbnail text: place JYOTIRLING SHIVMATH BARAULI LUCKNOW at the top centre; include the host's supplied real photograph on one side unchanged; prominently include exactly one programme label, SHIV MAHA PURAN for Shiv Puran content or BHAGVADGITA for Gita content; show the chapter number/name and chapter title together. AI chooses all other wording, imagery, colours, composition and placement based on the transcript."),
-    ("AI-3_cross_review",
-     "Independently verify every factual claim in the analysis and SEO package against the supplied transcript. Explicitly confirm that the transcript was read; flag anything not supported by it. Correct unsupported claims, policy risks, factual mistakes, keyword stuffing and weak packaging. Ensure the thumbnail concept grants creative freedom while retaining the mandatory channel header at top centre, unchanged real host photo on one side, correct programme label (SHIV MAHA PURAN or BHAGVADGITA), and chapter number/name together with chapter title. Return the final corrected package and a short change log.")
+    ("AI-1_data_analysis_v2",
+     "Evidence priority: read the full transcript when available. If transcript_available is false or transcript text is empty, switch to DESCRIPTION-BASED FALLBACK and carefully analyze the existing video description and title instead. Identify the actual topic, sequence of events, named people, reasons, quotations and shlokas only when explicitly supported by the transcript. Where useful, cite short exact transcript phrases as evidence. Do not claim the transcript is missing when transcript_available is true and transcript text is supplied. Do not invent metrics or spoken content."),
+    ("AI-2_youtube_seo_and_thumbnail_brief_v2",
+     "Use the full transcript as primary evidence when available; otherwise use the existing video description and title as the fallback evidence, and label all conclusions provisional/description-based. Prepare YouTube SEO: 3 title options, a complete Hindi-first description accurately summarizing what is actually spoken, relevant tags, hashtags, a concise Hindi thumbnail headline, and a detailed creative visual concept. Design the thumbnail freely from the transcript when available, otherwise from the description and title; do not force a pre-existing programme template or fixed layout. Mandatory thumbnail text: place JYOTIRLING SHIVMATH BARAULI LUCKNOW at the top centre; include the host's supplied real photograph on one side unchanged; prominently include exactly one programme label, SHIV MAHA PURAN for Shiv Puran content or BHAGVADGITA for Gita content; show the chapter number/name and chapter title together. AI chooses all other wording, imagery, colours, composition and placement based on the transcript."),
+    ("AI-3_cross_review_v2",
+     "Verify claims against the transcript when supplied; otherwise verify only against the existing title and description. State clearly whether the result is transcript-based or a provisional description-based fallback. Never claim a transcript was read when unavailable. Correct unsupported claims, policy risks, factual mistakes, keyword stuffing and weak packaging. Ensure the thumbnail concept grants creative freedom while retaining the mandatory channel header at top centre, unchanged real host photo on one side, correct programme label (SHIV MAHA PURAN or BHAGVADGITA), and chapter number/name together with chapter title. Return the final corrected package and a short change log.")
 ]
 
 
@@ -72,13 +72,13 @@ def _thumbnail_prompt(video, final_package):
     description = video.get("source_description") or video.get("description") or ""
     return (
         "Create a complete, original, high-quality devotional YouTube thumbnail design in 16:9. "
-        "Use the full transcript-grounded visual direction and headline below to choose the strongest scene, "
+        "Use the evidence-grounded visual direction and headline below to choose the strongest scene. If no transcript is supplied, use the existing video description and title as fallback and still create a description-based thumbnail, without inventing details.  "
         "composition, colours, typography and text placement. This must look like a finished thumbnail, "
         "not a generic background. Mandatory: exact channel header JYOTIRLING SHIVMATH BARAULI LUCKNOW "
         "at the top centre; the programme label SHIV MAHA PURAN for Shiv Puran or BHAGVADGITA for Gita; "
         "and chapter number/name together with the chapter title. Leave the RIGHTMOST 28 percent clean and visually quiet for the user's "
         "real photograph to be placed unchanged by the compositor; do not invent or depict the host. "
-        "All other design decisions are yours, grounded in the transcript. Never invent chapter details "
+        "All other design decisions are yours, grounded in the transcript when available, otherwise in the supplied video description and title. Never invent chapter details "
         "or add unrelated deities/characters. Source video title: " + title +
         ". Source description: " + description[:2500] +
         ". Transcript-based final SEO and thumbnail brief: " + final_package[:5000] +
