@@ -109,7 +109,8 @@ def main():
     for item in queue.get("items", []):
         item["transcript_retrieval"] = transcript_result["results"].get(item.get("video_id"), {})
     ai_result = run_ai_preparation(queue, ROOT / ".state" / "preparation.sqlite",
-                                   ROOT / "transcripts")
+                                   ROOT / "transcripts",
+                                   force_reprocess_video_ids=prep.get("force_reprocess_video_ids", []))
     result["new_upload_preparation"] = {
         "start_date_local": queue["start_date_local"],
         "timezone": queue["timezone"],
