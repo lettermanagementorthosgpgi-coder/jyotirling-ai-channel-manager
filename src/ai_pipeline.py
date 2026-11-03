@@ -13,9 +13,9 @@ ROLES = [
     ("AI-1_data_analysis",
      "Read and analyze the supplied full transcript before using metadata. Identify the actual topic, sequence of events, named people, reasons, quotations and shlokas only when explicitly supported by the transcript. Where useful, cite short exact transcript phrases as evidence. Do not claim the transcript is missing when transcript_available is true and transcript text is supplied. Do not invent metrics or spoken content."),
     ("AI-2_youtube_seo_and_thumbnail_brief",
-     "Use the transcript and AI-1 transcript-grounded analysis as primary evidence. Prepare YouTube SEO: 3 title options, a complete Hindi-first description accurately summarizing what is actually spoken, relevant tags, hashtags, a concise Hindi thumbnail headline, and a detailed visual concept. Respect the channel's fixed brand rules."),
+     "Use the full transcript and AI-1 transcript-grounded analysis as primary evidence. Prepare YouTube SEO: 3 title options, a complete Hindi-first description accurately summarizing what is actually spoken, relevant tags, hashtags, a concise Hindi thumbnail headline, and a detailed creative visual concept. Design the thumbnail concept freely from the actual transcript; do not force a pre-existing programme template or fixed layout. Mandatory thumbnail text: place JYOTIRLING SHIVMATH BARAULI LUCKNOW at the top centre; include the host's supplied real photograph on one side unchanged; prominently include exactly one programme label, SHIV MAHA PURAN for Shiv Puran content or BHAGVADGITA for Gita content; show the chapter number/name and chapter title together. AI chooses all other wording, imagery, colours, composition and placement based on the transcript."),
     ("AI-3_cross_review",
-     "Independently verify every factual claim in the analysis and SEO package against the supplied transcript. Explicitly confirm that the transcript was read; flag anything not supported by it. Correct unsupported claims, policy risks, factual mistakes, keyword stuffing and weak packaging. Return the final corrected package and a short change log.")
+     "Independently verify every factual claim in the analysis and SEO package against the supplied transcript. Explicitly confirm that the transcript was read; flag anything not supported by it. Correct unsupported claims, policy risks, factual mistakes, keyword stuffing and weak packaging. Ensure the thumbnail concept grants creative freedom while retaining the mandatory channel header at top centre, unchanged real host photo on one side, correct programme label (SHIV MAHA PURAN or BHAGVADGITA), and chapter number/name together with chapter title. Return the final corrected package and a short change log.")
 ]
 
 
@@ -43,13 +43,14 @@ def _prompt(role_instruction, video, previous, transcript):
         "transcript": transcript or None,
         "previous_stage_outputs": previous,
         "thumbnail_brand_rules": [
-            "YouTube thumbnail aspect ratio must be 16:9.",
-            "Keep the channel header exactly: JYOTIRLING SHIVMATH BARAULI LUCKNOW.",
-            "Speaker name is exactly: Mahant Rajesh Kumar Tiwari Ranjan.",
-            "Keep the user's real photograph unchanged; never synthesize or alter the person's face.",
-            "For Bhagavad Gita videos retain the established fixed template; update only chapter/topic text and relevant background.",
-            "For Shiv Puran videos retain the established fixed layout and select a chapter-relevant devotional background.",
-            "Keep Hindi topic text short, large, centered and mobile-readable."
+            "YouTube thumbnail must be 16:9 and designed freely by AI from the full transcript for maximum relevance, clarity and click appeal.",
+            "The exact channel header JYOTIRLING SHIVMATH BARAULI LUCKNOW must appear at the top centre.",
+            "Include the user's supplied real photograph on one side, unchanged; never synthesize, redraw, retouch or alter the person's face.",
+            "For Shiv Puran content, prominently show the exact programme label SHIV MAHA PURAN. For Bhagavad Gita content, prominently show BHAGVADGITA. Never use the wrong programme label.",
+            "Show the chapter number/name together with the chapter title as one clearly associated information unit.",
+            "AI has full creative freedom over all other wording, visual storytelling, deities/characters supported by the transcript, colours, typography, layout and placement.",
+            "All text must be accurate to the transcript, concise, high-contrast and readable on mobile.",
+            "Do not use a fixed bhajan, legacy master-frame or forced programme-specific layout for these scripture chapter thumbnails."
         ],
         "guardrails": [
             "Never invent transcript contents, quotations, shlokas, chapter names, people or events.",
@@ -70,17 +71,18 @@ def _thumbnail_prompt(video, final_package):
     title = video.get("source_title") or video.get("title") or "Devotional video"
     description = video.get("source_description") or video.get("description") or ""
     return (
-        "Create ONLY the cinematic devotional background artwork for a YouTube thumbnail. "
-        "Landscape 16:9 composition. Do not render any words, letters, numbers, logos, watermarks, "
-        "borders, banners, captions, or human portraits. Keep clean negative space in the central "
-        "area for later Hindi typography and reserve a calm area near one edge for a real author "
-        "photo to be composited separately. Respect Hindu devotional iconography; do not add "
-        "unrequested deities or extra characters. The source video title is: " + title +
+        "Create a complete, original, high-quality devotional YouTube thumbnail design in 16:9. "
+        "Use the full transcript-grounded visual direction and headline below to choose the strongest scene, "
+        "composition, colours, typography and text placement. This must look like a finished thumbnail, "
+        "not a generic background. Mandatory: exact channel header JYOTIRLING SHIVMATH BARAULI LUCKNOW "
+        "at the top centre; the programme label SHIV MAHA PURAN for Shiv Puran or BHAGVADGITA for Gita; "
+        "and chapter number/name together with the chapter title. Leave one side clean for the user's "
+        "real photograph to be placed unchanged by the compositor; do not invent or depict the host. "
+        "All other design decisions are yours, grounded in the transcript. Never invent chapter details "
+        "or add unrelated deities/characters. Source video title: " + title +
         ". Source description: " + description[:2500] +
-        ". Approved visual direction and Hindi headline from the SEO/review stages: " +
-        final_package[:5000] +
-        ". Produce a respectful, high-quality, luminous devotional scene suitable for a Hindi "
-        "spiritual YouTube channel. This is background art only, not a finished branded thumbnail."
+        ". Transcript-based final SEO and thumbnail brief: " + final_package[:5000] +
+        ". Render readable, correctly spelled Hindi/English text where possible, with strong mobile contrast."
     )
 
 
