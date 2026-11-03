@@ -4,6 +4,7 @@ from pathlib import Path
 from google.auth.transport.requests import Request, AuthorizedSession
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
 
 SCOPES = [
     "https://www.googleapis.com/auth/youtube.readonly",
@@ -74,4 +75,20 @@ def run_write_permission_smoke_test(youtube, video_id):
         "metadata_unchanged_after_readback": True,
         "fields_submitted": list(snippet.keys()),
         "note": "A YouTube videos.update request succeeded; the same existing snippet was written and read back unchanged."
+    }
+
+
+def upload_one_thumbnail(youtube, video_id, image_path):
+    """Upload one reviewed/generated thumbnail to exactly the supplied video ID."""
+    path = Path(image_path)
+    if not path.is_file() or path.stat().st_size == 0:
+        raise RuntimeError(f"Thumbnail file is missing or empty: {path}")
+    response = youtube.thumbnails().set(
+        videoId=video_id,
+        media_body=MediaFileUpload(str(path), mimetype="image/png", resumable=True)
+    ).execute()
+    return {
+        "video_id": video_id,
+        "thumbnail_url": (response.get("items") or [{}])[0].get("default", {}).get("url"),
+        "uploaded": True
     }
