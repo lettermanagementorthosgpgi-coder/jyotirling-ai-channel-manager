@@ -103,7 +103,8 @@ def main():
     queue = build_new_upload_preparation_queue(
         result["videos"],
         start_date=prep.get("start_date_local", "2026-11-02"),
-        timezone=config.get("timezone", "Asia/Kolkata"))
+        timezone=config.get("timezone", "Asia/Kolkata"),
+        include_video_ids=prep.get("include_video_ids", []))
     transcript_result = retrieve_queue_transcripts(youtube, queue.get("items", []), ROOT / "transcripts")
     for item in queue.get("items", []):
         item["transcript_retrieval"] = transcript_result["results"].get(item.get("video_id"), {})
@@ -112,6 +113,7 @@ def main():
     result["new_upload_preparation"] = {
         "start_date_local": queue["start_date_local"],
         "timezone": queue["timezone"],
+        "explicitly_included_video_ids": queue["explicitly_included_video_ids"],
         "videos_in_queue": queue["videos_in_queue"],
         "items": ai_result["items"],
         "providers_configured": ai_result["providers_configured"],
