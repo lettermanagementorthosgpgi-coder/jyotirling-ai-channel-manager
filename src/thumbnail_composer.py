@@ -78,6 +78,7 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
         draw.rounded_rectangle(plaque, radius=15, fill=(2,14,35), outline=(246,190,35), width=3)
         font = _fit(draw, chapter_name, 790, 48, 25)
         box = draw.textbbox((0,0), chapter_name, font=font, language="hi", stroke_width=1)
+        lines = [chapter_name]
         if box[2]-box[0] > 790:
             words = chapter_name.split()
             lines = [chapter_name]
