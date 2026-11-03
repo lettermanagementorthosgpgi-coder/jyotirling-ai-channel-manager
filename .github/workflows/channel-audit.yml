@@ -1,7 +1,13 @@
-name: Read-only YouTube channel audit and AI preparation
+name: YouTube channel audit and AI preparation
 
 on:
   workflow_dispatch:
+    inputs:
+      write_test:
+        description: "Run one public-video YouTube write-permission test (re-saves its current metadata unchanged)"
+        required: true
+        type: boolean
+        default: false
   push:
     branches:
       - feature/new-upload-preparation-queue
@@ -45,11 +51,12 @@ jobs:
           sudo apt-get install -y fonts-noto-core
           pip install -r requirements.txt
 
-      - name: Run read-only channel audit and AI preparation
+      - name: Run channel audit and AI preparation
         env:
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          YT_WRITE_TEST: ${{ inputs.write_test }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_MODEL: gpt-6-luna
