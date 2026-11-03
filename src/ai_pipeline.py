@@ -116,6 +116,7 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                 result_items.append(item)
                 continue
 
+            stop_queue = False
             for index, (role, instruction) in enumerate(ROLES):
                 if role in stages and stages[role].get("output"):
                     continue
@@ -147,6 +148,8 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                         errors.append({"role": role, "provider": provider,
                                        "error": f"{type(exc).__name__}: {exc}"[:500]})
                 if not succeeded:
+                    # Do not advance to another stage or video until this stage succeeds.
+                    stop_queue = True
                     break
 
             complete = all(role in stages and stages[role].get("output") for role, _ in ROLES)
@@ -213,6 +216,9 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                 "thumbnail": thumbnail_result
             }
             result_items.append(item)
+            if stop_queue:
+                # Leave later queue items untouched; the next run resumes this video/stage.
+                break
 
     return {
         "providers_configured": providers,
