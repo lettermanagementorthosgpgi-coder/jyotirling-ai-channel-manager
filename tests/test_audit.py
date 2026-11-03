@@ -36,11 +36,12 @@ class Tests(unittest.TestCase):
         self.assertNotIn("impressions",f.calls[0]["metrics"])
         self.assertNotIn("impressionClickThroughRate",f.calls[0]["metrics"])
     def test_daily_analytics(self):
-        h=[{"name":"video"},{"name":"day"},{"name":"views"}]
-        f=Reports([{"columnHeaders":h,"rows":[["A","2026-11-01",9]]}])
+        h=[{"name":"day"},{"name":"views"}]
+        f=Reports([{"columnHeaders":h,"rows":[["2026-11-01",9]]}])
         r=_daily_analytics_by_video(Analytics(f),"2026-10-01","2026-11-01")
-        self.assertEqual(r["by_video"]["A"][0]["date"],"2026-11-01")
-        self.assertEqual(f.calls[0]["dimensions"],"video,day")
+        self.assertEqual(r["by_day"]["2026-11-01"]["views"],9)
+        self.assertEqual(f.calls[0]["dimensions"],"day")
+        self.assertEqual(r["scope"],"channel")
     def test_reach_csv(self):
         s=("date,channel_id,video_id,video_thumbnail_impressions,video_thumbnail_impressions_ctr\n"
            "2026-10-31,C,A,1500,0.042\n2026-10-30,C,A,800,0.03\n")
