@@ -11,14 +11,14 @@ def _write_transcript(path: Path, text: str) -> dict:
     if not cleaned:
         return {"status": "empty_transcript"}
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(cleaned + "\\n", encoding="utf-8")
+    path.write_text(cleaned + "\n", encoding="utf-8")
     return {"status": "available", "file": str(path), "characters": len(cleaned)}
 
 
 def _clean_caption_text(raw: str) -> str:
     """Convert common SRT/VTT caption payloads to readable plain text."""
-    text = raw.lstrip("\\ufeff")
-    text = re.sub(r"^WEBVTT[^\\n]*\\n", "", text, flags=re.IGNORECASE)
+    text = raw.lstrip("\ufeff")
+    text = re.sub(r"^WEBVTT[^\n]*\n", "", text, flags=re.IGNORECASE)
     text = re.sub(r"<[^>]+>", "", text)
     lines = []
     for line in text.splitlines():
@@ -37,7 +37,7 @@ def _clean_caption_text(raw: str) -> str:
     for line in lines:
         if not compact or compact[-1] != line:
             compact.append(line)
-    return "\\n".join(compact).strip()
+    return "\n".join(compact).strip()
 
 
 def _download_owner_caption(youtube, video_id: str, output: Path) -> dict:
@@ -146,7 +146,7 @@ def retrieve_video_transcript(youtube, video_id: str, output_dir="transcripts") 
         fetched = YouTubeTranscriptApi().fetch(
             video_id, languages=["hi", "sa", "ur", "bn", "en"])
         segments = getattr(fetched, "snippets", fetched)
-        transcript_text = "\\n".join(
+        transcript_text = "\n".join(
             str(segment.get("text", "") if isinstance(segment, dict)
                 else getattr(segment, "text", ""))
             for segment in segments
