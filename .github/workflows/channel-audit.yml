@@ -56,6 +56,9 @@ jobs:
           GEMINI_MODEL: gemini-3.8-flash
           OPENAI_IMAGE_MODEL: gpt-image-2.5-flare
           GEMINI_IMAGE_MODEL: gemini-3.1-flash-image
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_MODEL: "@cf/meta/llama-3.2-1b-instruct"
         run: python main.py
 
       - name: Save audit, AI preparation report and thumbnail backgrounds
