@@ -3,6 +3,7 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 from src.youtube_client import build_youtube_services, run_write_permission_smoke_test, upload_one_thumbnail
 from src.ai_providers import available_providers, generate_thumbnail_background
 from src.thumbnail_composer import compose_thumbnail
@@ -135,7 +136,7 @@ def main():
         }
 
     prep = config.get("new_upload_preparation", {})
-    today_local = datetime.now().astimezone().date()
+    today_local = datetime.now(ZoneInfo(config.get("timezone", "Asia/Kolkata"))).date()
     from datetime import timedelta
     default_start = (today_local - timedelta(days=90)).isoformat()
     queue = build_new_upload_preparation_queue(
