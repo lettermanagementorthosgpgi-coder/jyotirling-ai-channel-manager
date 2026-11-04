@@ -41,10 +41,13 @@ def record_successful_seo_baseline(db_path, video_id, before_stats, seo_changed_
 
 
 def get_seo_baseline(db_path, video_id):
-    with sqlite3.connect(db_path) as db:
-        row = db.execute("""SELECT seo_changed_at, baseline_views, baseline_likes,
-            baseline_comments, old_metadata_json, new_metadata_json
-            FROM seo_performance_baselines WHERE video_id=?""", (video_id,)).fetchone()
+    try:
+        with sqlite3.connect(db_path) as db:
+            row = db.execute("""SELECT seo_changed_at, baseline_views, baseline_likes,
+                baseline_comments, old_metadata_json, new_metadata_json
+                FROM seo_performance_baselines WHERE video_id=?""", (video_id,)).fetchone()
+    except sqlite3.OperationalError:
+        return None
     if not row:
         return None
     return {
