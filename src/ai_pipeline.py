@@ -180,7 +180,7 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                         try:
                             image_bytes, image_model = generate_thumbnail_background(
                                 provider, _thumbnail_prompt(item, final_package))
-                            if not image_bytes.startswith(b"\\x89PNG\\r\\n\\x1a\\n"):
+                            if not image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
                                 raise ValueError("Image provider did not return a PNG file")
                             image_path.write_bytes(image_bytes)
                             image_attempts.append({
