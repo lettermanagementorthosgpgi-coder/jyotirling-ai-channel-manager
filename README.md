@@ -78,7 +78,7 @@ The master thumbnail `karmsanyasyog.jpeg` is bundled inside this repository at `
 
 ### Transcript grounding
 
-If a verified transcript is available, place it in `transcripts/<VIDEO_ID>.txt` in the runner's workspace before processing. When no transcript is available, the AI must mark its package as **metadata-only / provisional** and must not invent what was spoken. The hourly workflow now attempts transcript retrieval automatically: first through the official YouTube captions API, then through the best-effort `youtube-transcript-api` public-caption fallback. The official route requires the added `youtube.force-ssl` OAuth scope and the authenticated account must have edit permission on the video; `captions.list` returns track metadata and `captions.download` fetches the caption file. If neither route works, the report records each retrieval error and the AI remains metadata-only / provisional. To activate the official route, re-authorize the Google OAuth app and replace `YT_REFRESH_TOKEN` in GitHub Actions secrets with a token granted the new scope. Existing local `.secrets/token.json` must also be re-authorized. No video/audio is downloaded and no YouTube content is changed.
+If a verified transcript is available, place it in `transcripts/<VIDEO_ID>.txt` in the runner's workspace before processing. When no transcript is available, the AI must mark its package as **metadata-only / provisional** and must not invent what was spoken. The hourly workflow now attempts transcript retrieval automatically. It first tries the public `youtube-transcript-api` route, which does not consume YouTube Data API quota. If that fails, it checks the official YouTube captions API no more than once per 24 hours per video. This throttle is important because Google's current quota table assigns 50 units to `captions.list` and 200 units to `captions.download`; repeating those requests hourly can consume quota rapidly. Public transcript discovery is still retried on each scheduled run. The official route requires the `youtube.force-ssl` OAuth scope and the authenticated account must have edit permission on the video. If neither route works, the report records each retrieval error and the AI remains metadata-only / provisional. To activate the official route, re-authorize the Google OAuth app and replace `YT_REFRESH_TOKEN` in GitHub Actions secrets with a token granted the new scope. Existing local `.secrets/token.json` must also be re-authorized. No video/audio is downloaded and no YouTube content is changed.
 
 AI outputs are drafts for the user's review. No title, description, tag, thumbnail, upload, or publication is changed automatically.
 
@@ -93,6 +93,13 @@ The planned Shorts Manager must:
 - Prepare an individual review item for every Short, including source-video link and timecodes, rendered preview, proposed title, description, hashtags, and any rights/content checks.
 - Require the user's explicit approval for **each individual Short** before uploading and publishing it to YouTube. No automatic upload or publication is permitted.
 - Track each candidate's state (for example: Draft, Pending Approval, Approved, Uploaded/Published, Rejected) and avoid duplicate extraction or repeat publishing.
+
+
+## Quota protection
+
+- The channel inventory is persisted in the GitHub Actions cache. Hourly runs stop scanning the newest-first uploads playlist when they encounter the first already-known video, and fetch full video details only for newly discovered IDs. The first successful run builds the initial inventory; subsequent runs should normally use one uploads-playlist page plus the channel lookup.
+- The channel audit no longer runs on every code push. It remains available through manual dispatch and the hourly schedule; the unit-test workflow continues to run on code pushes.
+- Transcript retrieval tries the public transcript source first and rate-limits the quota-expensive official captions API to one check per video per 24 hours.
 
 ## Roadmap
 
