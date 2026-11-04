@@ -238,7 +238,9 @@ def _incremental_inventory(youtube, playlist_id, cached_by_id, max_videos):
 def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=False,
                       daily_analytics_days=30, reporting=None, reporting_session=None,
                       inventory_cache_path=None, manual_from_date=None,
-                      manual_to_date=None, timezone="Asia/Kolkata"):
+                      manual_to_date=None, timezone="Asia/Kolkata",
+                      include_video_ids=None):
+    explicit_video_ids = set(include_video_ids or [])
     channel_response = youtube.channels().list(
         part="snippet,contentDetails,statistics", mine=True).execute()
     channels = channel_response.get("items", [])
@@ -293,7 +295,8 @@ def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=Fals
         if manual_mode:
             if not (manual_start <= published_local <= manual_end):
                 continue
-        elif not (published_local_dt >= rolling_48h_cutoff or published_local == review_date):
+        elif not (published_local_dt >= rolling_48h_cutoff or published_local == review_date
+                  or vid in explicit_video_ids):
             continue
         thumbs = sn.get("thumbnails", {})
         videos.append({"video_id":vid,"title":sn.get("title"),
@@ -354,6 +357,7 @@ def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=Fals
             "manual_from_date":manual_from_date,"manual_to_date":manual_to_date,
             "rolling_48_hours_since":None if manual_mode else rolling_48h_cutoff.isoformat(),
             "rolling_review_date":None if manual_mode else review_date.isoformat(),
+            "explicitly_included_video_ids": sorted(explicit_video_ids),
             "full_channel_video_details_refetched":False},
         "channel":{"id":channel.get("id"),"title":channel.get("snippet",{}).get("title"),
             "custom_url":channel.get("snippet",{}).get("customUrl"),
