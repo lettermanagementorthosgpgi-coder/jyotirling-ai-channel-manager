@@ -103,6 +103,53 @@ jobs:
           CLOUDFLARE_IMAGE_MODEL: "@cf/black-forest-labs/flux-1-schnell"
         run: python main.py
 
+      - name: Email success notification to Gmail
+        if: success()
+        continue-on-error: true
+        env:
+          GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_WORKFLOW_NAME: ${{ github.workflow }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import os
+          import smtplib
+          from email.message import EmailMessage
+          from datetime import datetime, timezone
+
+          username = os.environ.get("GMAIL_USERNAME", "").strip()
+          app_password = os.environ.get("GMAIL_APP_PASSWORD", "").replace(" ", "")
+          if not username or not app_password:
+              print("Success email skipped: GMAIL_USERNAME or GMAIL_APP_PASSWORD secret is not configured.")
+              raise SystemExit(0)
+
+          run_url = os.environ["GITHUB_RUN_URL"]
+          run_number = os.environ["GITHUB_RUN_NUMBER"]
+          workflow = os.environ["GITHUB_WORKFLOW_NAME"]
+          branch = os.environ["GITHUB_REF_NAME"]
+          now = datetime.now(timezone.utc).strftime("%d %b %Y, %H:%M UTC")
+
+          message = EmailMessage()
+          message["From"] = username
+          message["To"] = "mahantrajeshtiwari@gmail.com"
+          message["Subject"] = f"SUCCESS: {workflow} — Run #{run_number}"
+          message.set_content(
+              f"GitHub Actions run completed successfully.\\n\\n"
+              f"Workflow: {workflow}\\n"
+              f"Run: #{run_number}\\n"
+              f"Branch: {branch}\\n"
+              f"Completed: {now}\\n\\n"
+              f"Open run report: {run_url}\\n"
+          )
+          with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
+              smtp.login(username, app_password)
+              smtp.send_message(message)
+          print("Success notification email sent.")
+          PY
+
       - name: Save requested manual audit report and thumbnail backgrounds
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
