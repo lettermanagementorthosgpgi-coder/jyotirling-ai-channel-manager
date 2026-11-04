@@ -1,7 +1,8 @@
 """Tests for supported Analytics activity and Reporting reach metrics."""
 import unittest
 from src.audit import (_analytics_by_video,_daily_analytics_by_video,_parse_reach_csv,
-                       _unique_playlist_video_ids,_unique_video_details)
+                       _unique_playlist_video_ids,_unique_video_details,
+                       _bounded_playlist_items,_incremental_inventory)
 
 class Req:
     def __init__(self,data=None,error=None): self.data,self.error=data or {},error
@@ -19,7 +20,50 @@ class Analytics:
     def reports(self): return self
     def query(self,**kw): return self.r.query(**kw)
 
+class PlaylistItems:
+    def __init__(self, pages):
+        self.pages, self.calls = pages, []
+    def list(self, **kwargs):
+        self.calls.append(kwargs)
+        page = self.pages.pop(0)
+        return Req(page)
+
+class Youtube:
+    def __init__(self, pages):
+        self.playlist = PlaylistItems(pages)
+    def playlistItems(self):
+        return self.playlist
+    def videos(self):
+        return self
+    def list(self, **kwargs):
+        return Req({"items": []})
+
 class Tests(unittest.TestCase):
+    def test_bounded_playlist_scan_does_not_request_older_pages(self):
+        yt = Youtube([
+            {"items":[
+                {"contentDetails":{"videoId":"A"}},
+                {"contentDetails":{"videoId":"B"}}
+            ],"nextPageToken":"older"}
+        ])
+        items = _bounded_playlist_items(yt, "uploads", 2)
+        self.assertEqual(len(items), 2)
+        self.assertEqual(len(yt.playlist.calls), 1)
+        self.assertEqual(yt.playlist.calls[0]["maxResults"], 2)
+
+    def test_incremental_scan_counts_only_entries_examined_before_cache_hit(self):
+        yt = Youtube([{"items":[
+            {"contentDetails":{"videoId":"already-cached"}},
+            {"contentDetails":{"videoId":"older-1"}},
+            {"contentDetails":{"videoId":"older-2"}}
+        ],"nextPageToken":"older"}])
+        updated, scanned, duplicates, new_count = _incremental_inventory(
+            yt, "uploads", {"already-cached":{"id":"already-cached"}}, 50)
+        self.assertEqual(scanned, 1)
+        self.assertEqual(new_count, 0)
+        self.assertEqual(duplicates, [])
+        self.assertEqual(len(yt.playlist.calls), 1)
+
     def test_playlist_dedup(self):
         ids,dupes=_unique_playlist_video_ids([
             {"id":"p1","contentDetails":{"videoId":"A"}},
