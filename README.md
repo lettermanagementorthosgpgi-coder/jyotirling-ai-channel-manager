@@ -96,6 +96,15 @@ The planned Shorts Manager must:
 
 
 
+
+## Quota-conscious daily scan and performance tracking
+
+- Scheduled runs do not perform a full channel-wide video-details read. After the one-time inventory bootstrap, the cached uploads inventory is checked newest-first and scanning stops at the first known upload. Only videos published in the exact rolling last 48 hours and videos published on the single local date exactly 90 days before today are refreshed from `videos.list`. Manual From/To runs refresh only public videos whose local publication date is within that inclusive range.
+- YouTube Analytics queries are server-filtered to the selected video IDs; no channel-wide daily totals or full-channel thumbnail reach report downloads are requested in the scheduled targeted scan.
+- Scheduled hourly runs do not upload daily report artifacts. A report artifact is attached only to a manually dispatched run. The local JSON report includes each selected video's performance metrics.
+- A SQLite SEO performance baseline helper records lifetime views/likes/comments immediately after a future SEO change is successfully verified. Later targeted reviews can report observed changes from that baseline and subscribers gained since the recorded SEO-change date. It does not attribute growth causally to SEO. Historical SEO changes that have no saved baseline cannot be reconstructed exactly from current counts.
+- The repository currently generates review drafts; automatic SEO metadata changes to YouTube are not yet implemented. The baseline helper must be called only after a future write has been verified. Gmail email/PDF delivery is also not implemented yet.
+
 ## Manual date-range selection and transcript retry window
 
 - The manual workflow dispatch now accepts inclusive `from_date` and `to_date` inputs in `YYYY-MM-DD` format. When both are supplied, only public uploads whose local publication date falls inside that range are placed in the preparation queue; otherwise the normal new-upload scope is used.
