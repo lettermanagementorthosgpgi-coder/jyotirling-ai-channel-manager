@@ -265,12 +265,16 @@ def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=Fals
     details, duplicate_resources = _unique_video_details(list(videos_by_id.values()))
     ids = list(videos_by_id.keys())
 
-    today = date.today()
-    start = today - timedelta(days=90)
-    aggregate = _analytics_by_video(analytics, start.isoformat(), today.isoformat())
-    daily_start = today - timedelta(days=daily_analytics_days)
-    daily = _daily_analytics_by_video(analytics, daily_start.isoformat(), today.isoformat())
-    reach = _daily_thumbnail_reach(reporting, reporting_session, daily_start.isoformat())
+    tz = ZoneInfo(timezone)
+    today_local = datetime.now(tz).date()
+    review_date = today_local - timedelta(days=90)
+    manual_mode = bool(manual_from_date or manual_to_date)
+    if manual_mode and (not manual_from_date or not manual_to_date):
+        raise ValueError("Both manual_from_date and manual_to_date are required.")
+    manual_start = date.fromisoformat(manual_from_date) if manual_from_date else None
+    manual_end = date.fromisoformat(manual_to_date) if manual_to_date else None
+    if manual_mode and manual_end < manual_start:
+        raise ValueError("manual_to_date must be on or after manual_from_date.")
 
     videos = []
     for video in details:
@@ -278,11 +282,19 @@ def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=Fals
         if privacy != "public" and not include_unlisted: continue
         sn, stats = video.get("snippet", {}), video.get("statistics", {})
         content, vid = video.get("contentDetails", {}), video.get("id")
+        published_raw = sn.get("publishedAt")
+        if not published_raw:
+            continue
+        try:
+            published_local = datetime.fromisoformat(published_raw.replace("Z", "+00:00")).astimezone(tz).date()
+        except (TypeError, ValueError):
+            continue
+        if manual_mode:
+            if not (manual_start <= published_local <= manual_end):
+                continue
+        elif published_local not in {today_local, today_local - timedelta(days=1), review_date}:
+            continue
         thumbs = sn.get("thumbnails", {})
-        daily_map = {}
-        for r in reach["by_video"].get(vid, []):
-            daily_map.setdefault(r["date"], {"date":r["date"]}).update(
-                {k:v for k,v in r.items() if k!="date"})
         videos.append({"video_id":vid,"title":sn.get("title"),
             "description":sn.get("description"),"published_at":sn.get("publishedAt"),
             "privacy_status":privacy,"duration":content.get("duration"),
@@ -291,9 +303,22 @@ def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=Fals
             "default_audio_language":sn.get("defaultAudioLanguage"),
             "thumbnail_urls":{k:v.get("url") for k,v in thumbs.items() if v.get("url")},
             "lifetime_statistics":{k:stats.get(k) for k in ("viewCount","likeCount","commentCount")},
-            "last_90_days_analytics":aggregate["by_video"].get(vid),
-            "daily_analytics":[daily_map[k] for k in sorted(daily_map)],
+            "last_90_days_analytics":None,
+            "daily_analytics":[],
             "url":f"https://www.youtube.com/watch?v={vid}"})
+    target_ids = [v["video_id"] for v in videos]
+    analytics_start = manual_start if manual_mode else review_date
+    analytics_end = manual_end if manual_mode else today_local
+    aggregate = _analytics_by_video(analytics, analytics_start.isoformat(),
+                                    analytics_end.isoformat(), target_ids)
+    for video in videos:
+        video["last_90_days_analytics"] = aggregate["by_video"].get(video["video_id"])
+
+    daily = {"available":False,"reason":"Daily channel-wide analytics disabled to conserve requests.",
+             "by_day":{},"pages_fetched":0,"daily_rows":0,"scope":"disabled"}
+    reach = {"available":False,"reason":"Thumbnail reach report downloads disabled in targeted scan.",
+             "by_video":{},"reports_read":0,"job_created":False}
+
     return {"report_type":"read_only_channel_audit","report_schema_version":4,
         "period":{"start":start.isoformat(),"end":today.isoformat()},
         "daily_analytics_period":{"start":daily_start.isoformat(),"end":today.isoformat(),
