@@ -11,6 +11,7 @@ from src.audit import run_channel_audit
 from src.preparation_queue import build_new_upload_preparation_queue
 from src.transcript_retrieval import retrieve_queue_transcripts
 from src.ai_pipeline import run_ai_preparation
+from src.seo_performance import get_seo_baseline, build_performance_delta, query_subscribers_gained_since
 
 ROOT = Path(__file__).resolve().parent
 
@@ -145,6 +146,27 @@ def main():
         end_date=manual_to or None,
         timezone=config.get("timezone", "Asia/Kolkata"),
         include_video_ids=[] if manual_range else prep.get("include_video_ids", []))
+    performance_db = ROOT / ".state" / "preparation.sqlite"
+    performance_end = today_local.isoformat()
+    for item in queue.get("items", []):
+        baseline = get_seo_baseline(performance_db, item.get("video_id"))
+        if baseline:
+            changed_date = datetime.fromisoformat(
+                baseline["seo_changed_at"].replace("Z", "+00:00")
+            ).astimezone(ZoneInfo(config.get("timezone", "Asia/Kolkata"))).date().isoformat()
+            subscriber_result = query_subscribers_gained_since(
+                analytics, item["video_id"], changed_date, performance_end)
+            item["seo_performance"] = build_performance_delta(
+                performance_db, item["video_id"], item.get("lifetime_statistics", {}),
+                subscribers_gained=subscriber_result.get("subscribers_gained"),
+                analytics_available=subscriber_result.get("available", False))
+            item["seo_performance"]["subscriber_analytics_reason"] = subscriber_result.get("reason")
+        else:
+            item["seo_performance"] = {
+                "baseline_available": False,
+                "note": "Verified SEO-change baseline not yet recorded for this video. Future confirmed SEO updates will establish the starting point."
+            }
+
     transcript_result = retrieve_queue_transcripts(youtube, queue.get("items", []), ROOT / "transcripts")
     for item in queue.get("items", []):
         item["transcript_retrieval"] = transcript_result["results"].get(item.get("video_id"), {})
