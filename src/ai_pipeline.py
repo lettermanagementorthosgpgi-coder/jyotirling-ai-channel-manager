@@ -96,13 +96,16 @@ def _thumbnail_prompt(video, final_package):
     else:
         scene_direction = (
             "Create a respectful, cinematic Shiv Mahapuran scene specifically grounded in the supplied khanda, "
-            "chapter title and evidence brief. Depict the exact episode or figures supported by that chapter; "
-            "do not reuse a generic Shiva-Parvati scene when the chapter describes a different event."
+            "chapter title and evidence brief. For Pancham Khanda chapter 5, 'नास्तिक मत से त्रिपुर का मोहित होना', "
+            "show the three magnificent fortified cities of Tripura and their inhabitants listening to a wandering "
+            "teacher; do NOT show Shiva-Parvati as the main scene. For other chapters, depict only the episode and "
+            "figures supported by that chapter. Never substitute a generic Shiva-Parvati scene."
         )
     return (
         "Create ONLY original devotional background artwork for a finished 16:9 YouTube thumbnail. "
         + scene_direction +
-        " Absolutely no words, letters, numbers, logos, watermarks, banners, labels or captions. "
+        "Absolutely no words, letters, numbers, logos, watermarks, banners, labels, captions, calligraphy, "
+        "Devanagari glyphs, pseudo-writing, decorative letterforms or text-like symbols anywhere in the artwork. "
         "Do not depict the channel host or any portrait; the original host photo will be composited separately "
         "on the LEFT. Keep the LEFT 22 percent relatively calm for that portrait, but do not make it a dark blank "
         "strip. Keep the CENTRE and RIGHT visually rich and chapter-specific, with clear visual space for large "
