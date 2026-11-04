@@ -12,6 +12,7 @@ from src.preparation_queue import build_new_upload_preparation_queue
 from src.transcript_retrieval import retrieve_queue_transcripts
 from src.ai_pipeline import run_ai_preparation
 from src.seo_performance import get_seo_baseline, build_performance_delta, query_subscribers_gained_since
+from src.programme_progression import build_daily_programme_feeds
 
 ROOT = Path(__file__).resolve().parent
 
@@ -22,6 +23,8 @@ def main():
     report_dir = ROOT / "reports"
     report_dir.mkdir(exist_ok=True)
     stamp = datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
+    daily_programme_feeds = build_daily_programme_feeds(config)
+    print("BOOK-BASED DAILY PROGRAMME FEEDS: " + json.dumps(daily_programme_feeds, ensure_ascii=False))
     manual_from = os.getenv("MANUAL_FROM_DATE", "").strip()
     manual_to = os.getenv("MANUAL_TO_DATE", "").strip()
     manual_range = bool(manual_from or manual_to)
@@ -50,6 +53,7 @@ def main():
             "status": "waiting_for_youtube_api_quota",
             "checked_at_local": datetime.now().astimezone().isoformat(),
             "error": error_text[:1500],
+            "daily_programme_feeds": daily_programme_feeds,
             "retry_policy": {
                 "enabled": True,
                 "schedule": "GitHub Actions retries automatically on the existing hourly schedule",
@@ -136,6 +140,7 @@ def main():
             "note": "No YouTube write request was made. Enable the workflow's write_test input for the one-video no-op test."
         }
 
+    result["daily_programme_feeds"] = daily_programme_feeds
     prep = config.get("new_upload_preparation", {})
     today_local = datetime.now(ZoneInfo(config.get("timezone", "Asia/Kolkata"))).date()
     from datetime import timedelta
