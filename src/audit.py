@@ -1,16 +1,19 @@
 """Read-only channel inventory, analytics and thumbnail reach collection."""
 from __future__ import annotations
 import csv, io
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 
-def _paged_request(service, method: str, **kwargs):
+def _paged_request(service, method: str, collection_key="items", **kwargs):
+    """Read every page from APIs whose collection field may not be named items."""
     items, token = [], None
     while True:
         response = getattr(service, method)(**kwargs, pageToken=token).execute()
-        items.extend(response.get("items", []))
+        items.extend(response.get(collection_key, []))
         token = response.get("nextPageToken")
-        if not token: break
+        if not token:
+            break
     return items
 
 
@@ -40,12 +43,12 @@ def _unique_video_details(items):
     return out, duplicates
 
 
-def _query_all_rows(analytics, start, end, dimensions, metrics, sort="-views", page_size=200):
+def _query_all_rows(analytics, start, end, dimensions, metrics, sort="-views", page_size=200, filters=None):
     rows_out, page, headers, pages = [], 1, None, 0
     while True:
         result = analytics.reports().query(ids="channel==MINE", startDate=start,
             endDate=end, metrics=metrics, dimensions=dimensions, sort=sort,
-            maxResults=page_size, startIndex=page).execute()
+            filters=filters, maxResults=page_size, startIndex=page).execute()
         pages += 1
         if headers is None: headers = [h.get("name") for h in result.get("columnHeaders", [])]
         rows = result.get("rows", [])
@@ -55,11 +58,14 @@ def _query_all_rows(analytics, start, end, dimensions, metrics, sort="-views", p
     return rows_out, pages
 
 
-def _analytics_by_video(analytics, start, end):
+def _analytics_by_video(analytics, start, end, video_ids=None):
     metrics = ("views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,"
                "likes,comments,shares,subscribersGained,subscribersLost")
     try:
-        rows, pages = _query_all_rows(analytics, start, end, "video", metrics)
+        if video_ids is not None and not video_ids:
+            return {"available":True,"by_video":{},"pages_fetched":0,"videos_with_analytics":0}
+        rows, pages = _query_all_rows(analytics, start, end, "video", metrics,
+                                      filters="video==" + ",".join(video_ids) if video_ids else None)
         data = {}
         for row in rows:
             vid = row.pop("video", None)
@@ -72,19 +78,23 @@ def _analytics_by_video(analytics, start, end):
 
 
 def _daily_analytics_by_video(analytics, start, end):
+    """Fetch supported channel-level daily totals.
+
+    YouTube Analytics rejects the video,day dimension combination for this
+    query. The day dimension is requested alone, so these figures are channel
+    totals and are deliberately not attributed to individual videos.
+    """
     metrics = ("views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,"
                "likes,comments,shares,subscribersGained")
     try:
-        rows, pages = _query_all_rows(analytics, start, end, "video,day", metrics)
-        data = {}
-        for row in rows:
-            vid, day = row.pop("video", None), row.pop("day", None)
-            if vid and day: data.setdefault(vid, []).append({"date":day, **row})
-        return {"available":True,"by_video":data,"pages_fetched":pages,
-                "daily_rows":sum(len(v) for v in data.values())}
+        rows, pages = _query_all_rows(analytics, start, end, "day", metrics)
+        by_day = {row["day"]: {k: v for k, v in row.items() if k != "day"}
+                  for row in rows if row.get("day")}
+        return {"available":True,"by_day":by_day,"pages_fetched":pages,
+                "daily_rows":len(by_day),"scope":"channel"}
     except Exception as exc:
-        return {"available":False,"reason":str(exc),"by_video":{},
-                "pages_fetched":0,"daily_rows":0}
+        return {"available":False,"reason":str(exc),"by_day":{},
+                "pages_fetched":0,"daily_rows":0,"scope":"channel"}
 
 
 def _number(value):
@@ -111,14 +121,24 @@ def _daily_thumbnail_reach(reporting, session, start_date):
         return {"available":False,"reason":"Reporting API client unavailable.",
                 "by_video":{},"reports_read":0,"job_created":False}
     try:
-        jobs = _paged_request(reporting.jobs(), "list")
+        # Reporting API uses "jobs" and "reports" collection keys, not "items".
+        jobs = _paged_request(reporting.jobs(), "list", collection_key="jobs")
         job = next((j for j in jobs if j.get("reportTypeId")=="channel_reach_basic_a1"), None)
         created = False
         if job is None:
-            job = reporting.jobs().create(body={"reportTypeId":"channel_reach_basic_a1",
-                "name":"Jyotirling Shivmath daily thumbnail reach"}).execute()
-            created = True
-        reports = _paged_request(reporting.jobs(), "reports", jobId=job["id"])
+            try:
+                job = reporting.jobs().create(body={"reportTypeId":"channel_reach_basic_a1",
+                    "name":"Jyotirling Shivmath daily thumbnail reach"}).execute()
+                created = True
+            except Exception as create_error:
+                # A previously-created job can exist even if a list response was
+                # empty or delayed. Re-list before reporting a creation failure.
+                jobs = _paged_request(reporting.jobs(), "list", collection_key="jobs")
+                job = next((j for j in jobs if j.get("reportTypeId")=="channel_reach_basic_a1"), None)
+                if job is None:
+                    raise create_error
+        reports = _paged_request(reporting.jobs(), "reports",
+                                 collection_key="reports", jobId=job["id"])
         data, count = {}, 0
         for report in reports:
             url = report.get("downloadUrl")
@@ -135,30 +155,128 @@ def _daily_thumbnail_reach(reporting, session, start_date):
                 "reports_read":0,"job_created":False}
 
 
+def _read_inventory_cache(cache_path, channel_id, playlist_id):
+    """Load the last complete inventory snapshot, if it belongs to this channel."""
+    if not cache_path:
+        return {}
+    from pathlib import Path
+    import json
+    path = Path(cache_path)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if (payload.get("schema_version") != 1 or
+                payload.get("channel_id") != channel_id or
+                payload.get("uploads_playlist_id") != playlist_id):
+            return {}
+        return payload.get("videos_by_id", {})
+    except (OSError, ValueError, TypeError):
+        return {}
+
+
+def _write_inventory_cache(cache_path, channel_id, playlist_id, videos_by_id):
+    """Persist the inventory so hourly runs do not rescan all historical uploads."""
+    if not cache_path:
+        return
+    from pathlib import Path
+    import json, os
+    path = Path(cache_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(path.suffix + ".tmp")
+    temp.write_text(json.dumps({
+        "schema_version": 1,
+        "channel_id": channel_id,
+        "uploads_playlist_id": playlist_id,
+        "videos_by_id": videos_by_id
+    }, ensure_ascii=False), encoding="utf-8")
+    os.replace(temp, path)
+
+
+def _fetch_video_details(youtube, video_ids):
+    details = []
+    for offset in range(0, len(video_ids), 50):
+        result = youtube.videos().list(part="snippet,contentDetails,statistics,status,liveStreamingDetails",
+            id=",".join(video_ids[offset:offset+50]), maxResults=50).execute()
+        details.extend(result.get("items", []))
+    return details
+
+
+def _incremental_inventory(youtube, playlist_id, cached_by_id, max_videos):
+    """Scan newest-first until the first known upload; fetch details only for new IDs."""
+    new_playlist_items, new_ids, seen = [], [], set()
+    token, scanned, found_known = None, 0, False
+    while scanned < max_videos:
+        page = youtube.playlistItems().list(part="snippet,contentDetails",
+            playlistId=playlist_id, maxResults=50, pageToken=token).execute()
+        items = page.get("items", [])
+        scanned += len(items)
+        for item in items:
+            video_id = item.get("contentDetails", {}).get("videoId")
+            if not video_id:
+                continue
+            if video_id in cached_by_id:
+                found_known = True
+                break
+            if video_id not in seen:
+                seen.add(video_id)
+                new_ids.append(video_id)
+                new_playlist_items.append(item)
+        if found_known or not page.get("nextPageToken") or not items:
+            break
+        token = page.get("nextPageToken")
+
+    # If a cache exists but no known item was encountered, continue scanning the
+    # complete playlist up to the configured cap; this also repairs stale caches.
+    ids, duplicate_entries = _unique_playlist_video_ids(new_playlist_items)
+    new_details = _fetch_video_details(youtube, ids)
+    updated = dict(cached_by_id)
+    for item in new_details:
+        if item.get("id"):
+            updated[item["id"]] = item
+    return updated, scanned, duplicate_entries, len(ids)
+
+
 def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=False,
-                      daily_analytics_days=30, reporting=None, reporting_session=None):
+                      daily_analytics_days=30, reporting=None, reporting_session=None,
+                      inventory_cache_path=None, manual_from_date=None,
+                      manual_to_date=None, timezone="Asia/Kolkata",
+                      include_video_ids=None):
+    explicit_video_ids = set(include_video_ids or [])
     channel_response = youtube.channels().list(
         part="snippet,contentDetails,statistics", mine=True).execute()
     channels = channel_response.get("items", [])
     if not channels: raise RuntimeError("No YouTube channel was returned for the authorized account.")
     channel = channels[0]
     playlist = channel["contentDetails"]["relatedPlaylists"]["uploads"]
-    playlist_items = _paged_request(youtube.playlistItems(), "list",
-        part="snippet,contentDetails", playlistId=playlist, maxResults=50)[:max_videos]
-    ids, duplicate_entries = _unique_playlist_video_ids(playlist_items)
-    details = []
-    for offset in range(0, len(ids), 50):
-        result = youtube.videos().list(part="snippet,contentDetails,statistics,status",
-            id=",".join(ids[offset:offset+50]), maxResults=50).execute()
-        details.extend(result.get("items", []))
-    details, duplicate_resources = _unique_video_details(details)
+    channel_id = channel.get("id", "")
+    cached_by_id = _read_inventory_cache(inventory_cache_path, channel_id, playlist)
 
-    today = date.today()
-    start = today - timedelta(days=90)
-    aggregate = _analytics_by_video(analytics, start.isoformat(), today.isoformat())
-    daily_start = today - timedelta(days=daily_analytics_days)
-    daily = _daily_analytics_by_video(analytics, daily_start.isoformat(), today.isoformat())
-    reach = _daily_thumbnail_reach(reporting, reporting_session, daily_start.isoformat())
+    if cached_by_id:
+        videos_by_id, playlist_scanned, duplicate_entries, newly_found = _incremental_inventory(
+            youtube, playlist, cached_by_id, max_videos)
+    else:
+        playlist_items = _paged_request(youtube.playlistItems(), "list",
+            part="snippet,contentDetails", playlistId=playlist, maxResults=50)[:max_videos]
+        ids, duplicate_entries = _unique_playlist_video_ids(playlist_items)
+        initial_details = _fetch_video_details(youtube, ids)
+        videos_by_id = {v["id"]: v for v in initial_details if v.get("id")}
+        playlist_scanned, newly_found = len(playlist_items), len(ids)
+
+    _write_inventory_cache(inventory_cache_path, channel_id, playlist, videos_by_id)
+    details, duplicate_resources = _unique_video_details(list(videos_by_id.values()))
+    ids = list(videos_by_id.keys())
+
+    tz = ZoneInfo(timezone)
+    now_local = datetime.now(tz)
+    today_local = now_local.date()
+    rolling_48h_cutoff = now_local - timedelta(hours=48)
+    review_date = today_local - timedelta(days=90)
+    manual_mode = bool(manual_from_date or manual_to_date)
+    if manual_mode and (not manual_from_date or not manual_to_date):
+        raise ValueError("Both manual_from_date and manual_to_date are required.")
+    manual_start = date.fromisoformat(manual_from_date) if manual_from_date else None
+    manual_end = date.fromisoformat(manual_to_date) if manual_to_date else None
+    if manual_mode and manual_end < manual_start:
+        raise ValueError("manual_to_date must be on or after manual_from_date.")
 
     videos = []
     for video in details:
@@ -166,39 +284,99 @@ def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=Fals
         if privacy != "public" and not include_unlisted: continue
         sn, stats = video.get("snippet", {}), video.get("statistics", {})
         content, vid = video.get("contentDetails", {}), video.get("id")
+        published_raw = sn.get("publishedAt")
+        if not published_raw:
+            continue
+        try:
+            published_local_dt = datetime.fromisoformat(published_raw.replace("Z", "+00:00")).astimezone(tz)
+            published_local = published_local_dt.date()
+        except (TypeError, ValueError):
+            continue
+        if manual_mode:
+            if not (manual_start <= published_local <= manual_end):
+                continue
+        elif not (published_local_dt >= rolling_48h_cutoff or published_local == review_date
+                  or vid in explicit_video_ids):
+            continue
         thumbs = sn.get("thumbnails", {})
-        daily_map = {r["date"]:r for r in daily["by_video"].get(vid, [])}
-        for r in reach["by_video"].get(vid, []):
-            daily_map.setdefault(r["date"], {"date":r["date"]}).update(
-                {k:v for k,v in r.items() if k!="date"})
         videos.append({"video_id":vid,"title":sn.get("title"),
             "description":sn.get("description"),"published_at":sn.get("publishedAt"),
+            "stream_started_at":video.get("liveStreamingDetails", {}).get("actualStartTime"),
+            "stream_ended_at":video.get("liveStreamingDetails", {}).get("actualEndTime"),
+            "scheduled_start_time":video.get("liveStreamingDetails", {}).get("scheduledStartTime"),
+            "live_broadcast_content":sn.get("liveBroadcastContent"),
             "privacy_status":privacy,"duration":content.get("duration"),
             "tags":sn.get("tags",[]),"category_id":sn.get("categoryId"),
             "default_language":sn.get("defaultLanguage"),
             "default_audio_language":sn.get("defaultAudioLanguage"),
             "thumbnail_urls":{k:v.get("url") for k,v in thumbs.items() if v.get("url")},
             "lifetime_statistics":{k:stats.get(k) for k in ("viewCount","likeCount","commentCount")},
-            "last_90_days_analytics":aggregate["by_video"].get(vid),
-            "daily_analytics":[daily_map[k] for k in sorted(daily_map)],
+            "last_90_days_analytics":None,
+            "daily_analytics":[],
             "url":f"https://www.youtube.com/watch?v={vid}"})
-    return {"report_type":"read_only_channel_audit","report_schema_version":4,
-        "period":{"start":start.isoformat(),"end":today.isoformat()},
-        "daily_analytics_period":{"start":daily_start.isoformat(),"end":today.isoformat(),
-            "days_requested":daily_analytics_days},
+    target_ids = [v["video_id"] for v in videos]
+    # Refresh current metadata/statistics only for the selected date cohorts.
+    # The 730-video inventory remains cached; this request is limited to the few
+    # selected IDs (at most 50 IDs per videos.list call).
+    fresh_target_details = _fetch_video_details(youtube, target_ids)
+    fresh_by_id = {v.get("id"): v for v in fresh_target_details if v.get("id")}
+    for video in videos:
+        fresh = fresh_by_id.get(video["video_id"])
+        if not fresh:
+            continue
+        sn, stats = fresh.get("snippet", {}), fresh.get("statistics", {})
+        thumbs = sn.get("thumbnails", {})
+        video.update({
+            "title": sn.get("title"),
+            "description": sn.get("description"),
+            "tags": sn.get("tags", []),
+            "thumbnail_urls": {k: v.get("url") for k, v in thumbs.items() if v.get("url")},
+            "lifetime_statistics": {k: stats.get(k) for k in ("viewCount", "likeCount", "commentCount")},
+            "stream_started_at": fresh.get("liveStreamingDetails", {}).get("actualStartTime"),
+            "stream_ended_at": fresh.get("liveStreamingDetails", {}).get("actualEndTime"),
+            "scheduled_start_time": fresh.get("liveStreamingDetails", {}).get("scheduledStartTime"),
+            "live_broadcast_content": sn.get("liveBroadcastContent")
+        })
+    analytics_start = manual_start if manual_mode else review_date
+    analytics_end = manual_end if manual_mode else today_local
+    aggregate = _analytics_by_video(analytics, analytics_start.isoformat(),
+                                    analytics_end.isoformat(), target_ids)
+    for video in videos:
+        video["last_90_days_analytics"] = aggregate["by_video"].get(video["video_id"])
+
+    daily = {"available":False,"reason":"Daily channel-wide analytics disabled to conserve requests.",
+             "by_day":{},"pages_fetched":0,"daily_rows":0,"scope":"disabled"}
+    reach = {"available":False,"reason":"Thumbnail reach report downloads disabled in targeted scan.",
+             "by_video":{},"reports_read":0,"job_created":False}
+
+    return {"report_type":"read_only_channel_audit","report_schema_version":5,
+        "period":{"start":analytics_start.isoformat(),"end":analytics_end.isoformat()},
+        "daily_analytics_period":{"start":analytics_start.isoformat(),"end":analytics_end.isoformat(),
+            "days_requested":(analytics_end-analytics_start).days+1},
+        "scan_scope":{"mode":"manual_date_range" if manual_mode else "daily_targeted",
+            "manual_from_date":manual_from_date,"manual_to_date":manual_to_date,
+            "rolling_48_hours_since":None if manual_mode else rolling_48h_cutoff.isoformat(),
+            "rolling_review_date":None if manual_mode else review_date.isoformat(),
+            "explicitly_included_video_ids": sorted(explicit_video_ids),
+            "full_channel_video_details_refetched":False},
         "channel":{"id":channel.get("id"),"title":channel.get("snippet",{}).get("title"),
             "custom_url":channel.get("snippet",{}).get("customUrl"),
             "statistics":channel.get("statistics",{})},
         "analytics_available":aggregate["available"],"analytics_note":aggregate.get("reason"),
         "analytics_pages_fetched":aggregate["pages_fetched"],
-        "videos_with_90_day_analytics":aggregate["videos_with_analytics"],
+        "videos_with_target_period_analytics":aggregate["videos_with_analytics"],
         "daily_analytics_available":daily["available"],"daily_analytics_note":daily.get("reason"),
+        "daily_analytics_scope":"disabled",
+        "daily_channel_analytics":daily.get("by_day",{}),
         "daily_analytics_pages_fetched":daily["pages_fetched"],"daily_analytics_rows":daily["daily_rows"],
-        "thumbnail_reach_available":reach["available"],"thumbnail_reach_note":reach.get("reason"),
-        "thumbnail_reach_reports_read":reach["reports_read"],
-        "thumbnail_reach_job_created":reach["job_created"],
-        "thumbnail_reach_report_type_id":reach.get("report_type_id"),
-        "playlist_items_scanned":len(playlist_items),"unique_video_ids":len(ids),
+        "thumbnail_reach_available":False,"thumbnail_reach_note":reach.get("reason"),
+        "thumbnail_reach_reports_read":0,
+        "thumbnail_reach_job_created":False,
+        "thumbnail_reach_report_type_id":None,
+        "playlist_items_scanned":playlist_scanned,"unique_video_ids":len(ids),
+        "new_video_ids_discovered_this_run":newly_found,
+        "inventory_cache_used":bool(cached_by_id),
+        "inventory_cache_video_count":len(videos_by_id),
         "inventory_video_count":len(videos),
         "duplicate_uploads_playlist_entry_count":len(duplicate_entries),
         "duplicate_uploads_playlist_entries":duplicate_entries,
