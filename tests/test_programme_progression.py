@@ -1,4 +1,5 @@
 from datetime import date
+import unittest
 
 from src.programme_progression import build_daily_programme_feeds
 
@@ -27,26 +28,28 @@ def sample_config():
     }
 
 
-def test_feed_starts_with_separately_fed_chapters():
-    feeds = build_daily_programme_feeds(sample_config(), date(2026, 11, 4))
-    assert feeds["morning"]["section_name"] == "पंचम खंड"
-    assert feeds["morning"]["chapter_number"] == 5
-    assert feeds["evening"]["chapter_number"] == 17
+class ProgrammeProgressionTests(unittest.TestCase):
+    def test_feed_starts_with_separately_fed_chapters(self):
+        feeds = build_daily_programme_feeds(sample_config(), date(2026, 11, 4))
+        self.assertEqual(feeds["morning"]["section_name"], "पंचम खंड")
+        self.assertEqual(feeds["morning"]["chapter_number"], 5)
+        self.assertEqual(feeds["evening"]["chapter_number"], 17)
+
+    def test_feed_advances_once_per_calendar_day_and_keeps_books_separate(self):
+        feeds = build_daily_programme_feeds(sample_config(), date(2026, 11, 5))
+        self.assertEqual(feeds["morning"]["chapter_number"], 6)
+        self.assertEqual(feeds["evening"]["chapter_number"], 18)
+        self.assertEqual(feeds["evening"]["chapter_title"], "मोक्षसंन्यासयोग")
+
+    def test_shiv_puran_moves_to_next_section_using_contents_sequence(self):
+        feeds = build_daily_programme_feeds(sample_config(), date(2026, 12, 29))
+        self.assertEqual(feeds["morning"]["section_name"], "शतरुद्र संहिता")
+        self.assertEqual(feeds["morning"]["chapter_number"], 1)
+
+    def test_gita_stops_after_eighteen_chapters(self):
+        feeds = build_daily_programme_feeds(sample_config(), date(2026, 11, 6))
+        self.assertEqual(feeds["evening"]["status"], "book_sequence_completed")
 
 
-def test_feed_advances_once_per_calendar_day_and_keeps_books_separate():
-    feeds = build_daily_programme_feeds(sample_config(), date(2026, 11, 5))
-    assert feeds["morning"]["chapter_number"] == 6
-    assert feeds["evening"]["chapter_number"] == 18
-    assert feeds["evening"]["chapter_title"] == "मोक्षसंन्यासयोग"
-
-
-def test_shiv_puran_moves_to_next_section_using_contents_sequence():
-    feeds = build_daily_programme_feeds(sample_config(), date(2026, 12, 29))
-    assert feeds["morning"]["section_name"] == "शतरुद्र संहिता"
-    assert feeds["morning"]["chapter_number"] == 1
-
-
-def test_gita_stops_after_eighteen_chapters():
-    feeds = build_daily_programme_feeds(sample_config(), date(2026, 11, 6))
-    assert feeds["evening"]["status"] == "book_sequence_completed"
+if __name__ == "__main__":
+    unittest.main()
