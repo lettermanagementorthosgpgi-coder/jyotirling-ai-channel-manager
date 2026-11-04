@@ -182,6 +182,14 @@ def main():
         timezone=config.get("timezone", "Asia/Kolkata"),
         include_video_ids=[] if manual_range else prep.get("include_video_ids", []),
         programme_feeds=None if manual_range else daily_programme_feeds)
+    # Remove cached previews for videos that are not in this run's review queue.
+    active_prefixes = {f"{item.get('video_id')}_"
+                       for item in queue.get("items", []) if item.get("video_id")}
+    thumbnail_dir = ROOT / "thumbnails"
+    if thumbnail_dir.exists():
+        for stale_image in thumbnail_dir.glob("*.png"):
+            if not any(stale_image.name.startswith(prefix) for prefix in active_prefixes):
+                stale_image.unlink(missing_ok=True)
     performance_db = ROOT / ".state" / "preparation.sqlite"
     performance_end = today_local.isoformat()
     for item in queue.get("items", []):

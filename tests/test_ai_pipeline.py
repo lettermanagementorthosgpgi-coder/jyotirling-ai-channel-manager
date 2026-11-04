@@ -21,7 +21,7 @@ class AIPipelineTests(unittest.TestCase):
 
         def fake_generate(provider, prompt):
             calls.append(provider)
-            return (("शिव पुराण त्रिपुर प्रसंग शीर्षक विवरण टैग thumbnail headline " + "यह प्रमाण आधारित विस्तृत सामग्री है। सत्यापन सुधार review " * 18), f"{provider}-test-model")
+            return (("शिव पुराण त्रिपुर प्रसंग शीर्षक विवरण टैग हैशटैग चित्र-विचार thumbnail headline संक्षिप्त हिंदी headline " + "यह प्रमाण आधारित विस्तृत सामग्री है। सत्यापन सुधार review " * 18), f"{provider}-test-model")
 
         def fake_image(provider, prompt):
             if provider == "openai":
@@ -65,7 +65,7 @@ class AIPipelineTests(unittest.TestCase):
         def fake_generate(provider, prompt):
             if provider == "openai":
                 raise RuntimeError("simulated provider outage")
-            return ("भगवद्गीता कृष्ण अर्जुन अध्याय श्रद्धा शीर्षक विवरण टैग thumbnail headline " + "यह प्रमाण आधारित सामग्री है। " * 18), "gemini-test-model"
+            return ("भगवद्गीता कृष्ण अर्जुन अध्याय श्रद्धा शीर्षक विवरण टैग हैशटैग चित्र-विचार thumbnail headline संक्षिप्त हिंदी headline " + "यह प्रमाण आधारित सामग्री है। " * 18), "gemini-test-model"
 
         def fake_image(provider, prompt):
             return b"\x89PNG\r\n\x1a\nfake-png", "gemini-image-test"

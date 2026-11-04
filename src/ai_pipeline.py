@@ -57,9 +57,18 @@ def _validate_stage_output(role, output, video):
         expected = video.get("chapter_number")
         if expected and any(int(value.translate(devanagari)) != int(expected) for value in chapter_mentions):
             return False, "AI mentioned a chapter number that conflicts with the PDF-checked chapter."
-    if role == "AI-2_youtube_seo_and_thumbnail_brief" and not any(
-            term in lowered for term in ("संक्षिप्त हिंदी headline", "मुख्य headline", "thumbnail headline", "थंबनेल शीर्षक")):
-        return False, "SEO stage omitted the explicit Hindi thumbnail-headline field."
+    if role == "AI-2_youtube_seo_and_thumbnail_brief":
+        required_fields = (
+            ("शीर्षक", "title"),
+            ("विवरण", "description"),
+            ("टैग", "tags"),
+            ("हैशटैग", "hashtags"),
+            ("चित्र-विचार", "visual brief", "visual concept"),
+            ("संक्षिप्त हिंदी headline", "मुख्य headline", "thumbnail headline", "थंबनेल शीर्षक"),
+        )
+        completed_fields = sum(1 for group in required_fields if any(term in lowered for term in group))
+        if len(text) < 300 or completed_fields < 5:
+            return False, "SEO response is incomplete: it must include title options, description, tags, hashtags, visual brief and a Hindi thumbnail headline."
     if role == "AI-3_cross_review" and not any(
             term in lowered for term in ("सत्यापन", "समीक्षा", "जाँच", "जांच", "सुधार", "त्रुटि", "verify", "correction", "review")):
         return False, "Cross-review did not report a verification or correction result."
