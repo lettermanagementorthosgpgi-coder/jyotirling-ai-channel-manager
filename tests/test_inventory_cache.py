@@ -62,7 +62,7 @@ class InventoryCacheTests(unittest.TestCase):
         cached = {"known": {"id": "known", "status": {"privacyStatus": "public"}}}
         updated, scanned, duplicates, new_count = _incremental_inventory(
             yt, "uploads", cached, 5000)
-        self.assertEqual(scanned, 4)
+        self.assertEqual(scanned, 3)  # Two new entries plus the first cached entry examined.
         self.assertEqual(new_count, 2)
         self.assertEqual(set(updated), {"known", "new-a", "new-b"})
         self.assertEqual(len(yt.video_service.calls), 1)
