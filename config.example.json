@@ -3,6 +3,28 @@
   "channel_handle": "@MAHANTRAJESHKUMARTIWARIRANJAN",
   "timezone": "Asia/Kolkata",
   "audit": {"max_videos_per_run":5000,"include_unlisted":false,"daily_analytics_days":30},
+  "programme_feeds": {
+    "feed_date_local": "2026-11-04",
+    "morning": {
+      "programme": "shiv_puran",
+      "book": "शिव पुराण",
+      "khanda_number": 5,
+      "khanda_name": "पंचम खंड",
+      "chapter_number": 5,
+      "chapter_title": null,
+      "source_of_truth": "Soochi Shiv Puran ki.pdf",
+      "note": "Use only the authoritative contents PDF to resolve the exact chapter title and topic; do not infer it from Bhagavad Gita or guess."
+    },
+    "evening": {
+      "programme": "bhagavad_gita",
+      "book": "श्रीमद्भगवद्गीता",
+      "chapter_number": 17,
+      "chapter_title": "श्रद्धात्रयविभागयोग",
+      "chapter_title_english": "The Divisions of Faith",
+      "source_of_truth": "bhagavad_gita_yatharoop.pdf",
+      "note": "This is the evening Bhagavad Gita feed only. Keep it independent from the morning Shiv Puran feed."
+    }
+  },
   "new_upload_preparation": {
     "start_date_local": "2026-11-02",
     "include_video_ids": ["AQzeCs48jhk"],
