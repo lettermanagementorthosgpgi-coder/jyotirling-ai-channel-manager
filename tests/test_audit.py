@@ -35,6 +35,21 @@ class Tests(unittest.TestCase):
         self.assertTrue(r["available"]); self.assertEqual(r["by_video"]["A"]["views"],5)
         self.assertNotIn("impressions",f.calls[0]["metrics"])
         self.assertNotIn("impressionClickThroughRate",f.calls[0]["metrics"])
+    def test_analytics_query_is_server_filtered_to_selected_video_ids(self):
+        headers=[{"name":"video"},{"name":"views"}]
+        f=Reports([{"columnHeaders":headers,"rows":[["A",5],["B",8]]}])
+        r=_analytics_by_video(Analytics(f),"2026-10-01","2026-11-01",["A","B"])
+        self.assertTrue(r["available"])
+        self.assertEqual(f.calls[0]["filters"],"video==A,B")
+        self.assertEqual(set(r["by_video"]),{"A","B"})
+
+    def test_empty_target_cohort_skips_analytics_request(self):
+        f=Reports([])
+        r=_analytics_by_video(Analytics(f),"2026-10-01","2026-11-01",[])
+        self.assertTrue(r["available"])
+        self.assertEqual(r["pages_fetched"],0)
+        self.assertEqual(f.calls,[])
+
     def test_daily_analytics(self):
         h=[{"name":"day"},{"name":"views"}]
         f=Reports([{"columnHeaders":h,"rows":[["2026-11-01",9]]}])
