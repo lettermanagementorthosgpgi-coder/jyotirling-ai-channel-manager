@@ -30,9 +30,11 @@ class PreparationQueueTests(unittest.TestCase):
             {"video_id": "old-review", "published_at": "2026-11-01T10:00:00Z", "title": "Shiv ji dwara devtaon ko bhejna"},
             {"video_id": "today-live", "published_at": "2026-11-04T09:00:00Z", "stream_started_at": "2026-11-04T03:30:00Z", "title": "Tripur vadh ki prarthna"},
         ]
+        feeds = {"morning": {"programme": "shiv_puran", "chapter_number": 5, "section_name": "पंचम खंड"}}
         result = build_new_upload_preparation_queue(
             videos, "2026-11-04", end_date="2026-11-04",
-            include_video_ids=["old-review"], timezone="Asia/Kolkata")
+            include_video_ids=["old-review"], timezone="Asia/Kolkata",
+            programme_feeds=feeds)
         self.assertEqual([x["video_id"] for x in result["items"]], ["today-live", "old-review"])
         self.assertIsNotNone(result["items"][0]["programme_feed"])
         self.assertIsNone(result["items"][1]["programme_feed"])
