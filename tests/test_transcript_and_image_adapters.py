@@ -32,7 +32,7 @@ class TranscriptRetrievalTests(unittest.TestCase):
             result = retrieve_video_transcript(None, "video-1", tmp)
             self.assertEqual(result["status"], "available")
             self.assertEqual(Path(result["file"]).read_text(encoding="utf-8"), "हरि ॐ\n")
-            self.assertEqual(result["source"], "youtube_transcript_api_public_fallback")
+            self.assertEqual(result["source"], "youtube_transcript_api_public_first")
 
     def test_official_caption_api_is_throttled_when_recently_checked(self):
         class Blocked:
