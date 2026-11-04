@@ -103,6 +103,17 @@ jobs:
           CLOUDFLARE_IMAGE_MODEL: "@cf/black-forest-labs/flux-1-schnell"
         run: python main.py
 
+      - name: Save requested manual audit report and thumbnail backgrounds
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: jyotirling-channel-audit
+          path: |
+            reports/*.json
+            thumbnails/*.png
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Email success notification to Gmail
         if: success()
         continue-on-error: true
@@ -137,26 +148,15 @@ jobs:
           message["To"] = "mahantrajeshtiwari@gmail.com"
           message["Subject"] = f"SUCCESS: {workflow} — Run #{run_number}"
           message.set_content(
-              f"GitHub Actions run completed successfully.\\n\\n"
-              f"Workflow: {workflow}\\n"
-              f"Run: #{run_number}\\n"
-              f"Branch: {branch}\\n"
-              f"Completed: {now}\\n\\n"
-              f"Open run report: {run_url}\\n"
+              f"GitHub Actions run completed successfully.\n\n"
+              f"Workflow: {workflow}\n"
+              f"Run: #{run_number}\n"
+              f"Branch: {branch}\n"
+              f"Completed: {now}\n\n"
+              f"Open run report: {run_url}\n"
           )
           with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
               smtp.login(username, app_password)
               smtp.send_message(message)
           print("Success notification email sent.")
           PY
-
-      - name: Save requested manual audit report and thumbnail backgrounds
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
-        with:
-          name: jyotirling-channel-audit
-          path: |
-            reports/*.json
-            thumbnails/*.png
-          if-no-files-found: error
-          retention-days: 30
