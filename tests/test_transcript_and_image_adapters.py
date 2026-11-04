@@ -1,5 +1,7 @@
 import sys
 import tempfile
+import json
+from datetime import datetime, timedelta, timezone
 import types
 import unittest
 from pathlib import Path
@@ -31,6 +33,30 @@ class TranscriptRetrievalTests(unittest.TestCase):
             self.assertEqual(result["status"], "available")
             self.assertEqual(Path(result["file"]).read_text(encoding="utf-8"), "हरि ॐ\n")
             self.assertEqual(result["source"], "youtube_transcript_api_public_fallback")
+
+    def test_official_caption_api_is_throttled_when_recently_checked(self):
+        class Blocked:
+            def fetch(self, *args, **kwargs):
+                raise type("TranscriptsDisabled", (Exception,), {})("disabled")
+        module = types.ModuleType("youtube_transcript_api")
+        module.YouTubeTranscriptApi = lambda: Blocked()
+        class YouTube:
+            def captions(self):
+                raise AssertionError("Official captions API should be throttled")
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(sys.modules, {
+            "youtube_transcript_api": module
+        }):
+            checked = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+            Path(tmp, "video-2.json").write_text(json.dumps({
+                "status": "unavailable",
+                "official_api_last_checked_at": checked
+            }), encoding="utf-8")
+            result = retrieve_video_transcript(YouTube(), "video-2", tmp)
+            self.assertEqual(result["status"], "unavailable")
+            self.assertTrue(any(
+                item.get("status") == "deferred_to_reduce_quota"
+                for item in result["attempts"]
+            ))
 
     def test_gemini_image_output_image_shape(self):
         self.assertEqual(_extract_gemini_image({"output_image": {"data": "abc"}}), "abc")
