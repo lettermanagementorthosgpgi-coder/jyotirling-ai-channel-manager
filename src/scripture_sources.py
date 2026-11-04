@@ -157,8 +157,10 @@ def find_primary_scripture_source(video: dict, source_dir="scripture_sources/pdf
                 "note": "Manual book mode requires an exact printed chapter heading in the requested book/section. No chapter topic or metadata was guessed."
             }
         allowed_pages = set()
+        ordinal_words = "|".join(re.escape(word) for word in DEVANAGARI_CHAPTERS.values())
         generic_heading = re.compile(
-            r"(?:अध्याय|अध्‍याय|chapter)\s*[-:#]?\s*(?:[0-9]{1,2}|[०-९]{1,2})",
+            r"(?:अध्याय|अध्‍याय|chapter)\s*[-:#]?\s*(?:[0-9]{1,2}|[०-९]{1,2})|"
+            + rf"(?:{ordinal_words})(?:ो)?ऽ?अध्याय(?:ः)?",
             flags=re.IGNORECASE
         )
         for heading_index in scoped_headings:
