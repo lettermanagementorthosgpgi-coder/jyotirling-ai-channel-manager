@@ -104,7 +104,7 @@ jobs:
         run: python main.py
 
       - name: Save requested manual audit report and thumbnail backgrounds
-        if: github.event_name == 'workflow_dispatch'
+        if: always() && hashFiles('reports/*.json', 'thumbnails/*.png') != ''
         uses: actions/upload-artifact@v4
         with:
           name: jyotirling-channel-audit
@@ -112,7 +112,7 @@ jobs:
             reports/*.json
             thumbnails/*.png
           if-no-files-found: error
-          retention-days: 30
+          retention-days: 7
 
       - name: Email success notification to Gmail
         if: success()
