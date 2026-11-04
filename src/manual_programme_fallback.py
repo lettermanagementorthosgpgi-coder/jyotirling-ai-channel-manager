@@ -44,6 +44,7 @@ def build_manual_programme_queue(daily_feeds: dict) -> dict:
             "tags": [],
             "programme": programme,
             "programme_slot": slot,
+            "manual_book_mode": True,
             "programme_feed": feed,
             "chapter_number": chapter,
             "chapter_title": chapter_title,
