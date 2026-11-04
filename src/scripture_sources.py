@@ -134,9 +134,9 @@ def find_primary_scripture_source(video: dict, source_dir="scripture_sources/pdf
 
     if video.get("manual_book_mode"):
         scoped_headings = list(exact_heading_pages)
+        section_markers = [i for i, (_, page_text) in enumerate(all_pages)
+                           if section_name and section_name in page_text]
         if section_name:
-            section_markers = [i for i, (_, page_text) in enumerate(all_pages)
-                               if section_name in page_text]
             scoped_headings = []
             for heading_index in exact_heading_pages:
                 previous_markers = [i for i in section_markers if i <= heading_index]
@@ -157,9 +157,26 @@ def find_primary_scripture_source(video: dict, source_dir="scripture_sources/pdf
                 "note": "Manual book mode requires an exact printed chapter heading in the requested book/section. No chapter topic or metadata was guessed."
             }
         allowed_pages = set()
+        generic_heading = re.compile(
+            r"(?:अध्याय|अध्‍याय|chapter)\\s*[-:#]?\\s*(?:[0-9]{1,2}|[०-९]{1,2})",
+            flags=re.IGNORECASE
+        )
         for heading_index in scoped_headings:
-            allowed_pages.update(range(heading_index + 1, min(heading_index + 5, len(all_pages) + 1)))
-        pages = [entry for entry in pages if entry[1] in allowed_pages]
+            section_end = len(all_pages)
+            if section_name:
+                previous_markers = [i for i in section_markers if i <= heading_index]
+                if previous_markers:
+                    next_markers = [i for i in section_markers if i > previous_markers[-1]]
+                    section_end = next_markers[0] if next_markers else len(all_pages)
+            next_chapters = [i for i in range(heading_index + 1, section_end)
+                             if generic_heading.search(all_pages[i][1])]
+            chapter_end = next_chapters[0] if next_chapters else section_end
+            allowed_pages.update(range(heading_index, chapter_end))
+        # Keep the complete matched chapter in book order, subject to the
+        # evidence character cap below; do not truncate arbitrarily to 4 pages.
+        pages = [(25 if page_no - 1 in scoped_headings else 10, page_no, page_text)
+                 for page_no, page_text in all_pages
+                 if page_no - 1 in allowed_pages and page_text.strip()]
 
     pages.sort(key=lambda item: (-item[0], item[1]))
     excerpts = []
