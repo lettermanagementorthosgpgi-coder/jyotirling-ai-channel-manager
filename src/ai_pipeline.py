@@ -37,6 +37,13 @@ def _prompt(role_instruction, video, previous, transcript):
             "existing_title": video.get("source_title") or video.get("title"),
             "existing_description": video.get("source_description") or video.get("description"),
             "existing_tags": video.get("source_tags") or video.get("tags", []),
+            "programme": video.get("programme"),
+            "programme_slot": video.get("programme_slot"),
+            "manual_book_mode": bool(video.get("manual_book_mode")),
+            "programme_feed": video.get("programme_feed"),
+            "chapter_number": video.get("chapter_number"),
+            "chapter_title": video.get("chapter_title"),
+            "khanda_name": video.get("khanda_name"),
             "duration": video.get("duration"),
             "analytics": video.get("last_90_days_analytics"),
             "daily_analytics": video.get("daily_analytics", [])
@@ -57,6 +64,7 @@ def _prompt(role_instruction, video, previous, transcript):
         ],
         "guardrails": [
             "Never invent transcript contents, quotations, shlokas, chapter names, people or events.",
+            "For manual_book_mode, read the matched original PDF chapter excerpts and identify the chapter's printed heading/title from that source. If the exact printed title is not present, explicitly say it could not be verified; never manufacture a title.",
             "If transcript is missing but primary_scripture_source.status is matched, ground the draft in its page-cited excerpts and label it scripture-reference-based; do not call it transcript-based or metadata-only.",
             "If neither transcript nor a matched scripture source is available, description/title may be used only after the 48-hour wait and must be labelled description-based.",
             "Do not change or publish anything on YouTube. Produce recommendations only.",
@@ -146,6 +154,16 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                     last_attempt_at=excluded.last_attempt_at""",
                     (vid, first_seen_at, now.isoformat(), fallback_allowed_at))
                 db.commit()
+                if scripture_source.get("status") != "matched" and item.get("manual_book_mode"):
+                    item["ai_preparation"] = {
+                        "status": "manual_book_source_not_matched_needs_source_check",
+                        "transcript_available": False,
+                        "primary_scripture_source_status": scripture_source.get("status"),
+                        "primary_scripture_source": scripture_source,
+                        "note": "Manual book mode will not fall back to guessed chapter content. Verify the requested chapter in the provisioned original PDF before generating metadata or a thumbnail."
+                    }
+                    result_items.append(item)
+                    continue
                 if now < fallback_time and scripture_source.get("status") != "matched":
                     remaining = max(0, int((fallback_time - now).total_seconds() // 3600))
                     item["ai_preparation"] = {
