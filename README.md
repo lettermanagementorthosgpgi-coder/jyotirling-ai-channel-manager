@@ -125,3 +125,17 @@ The planned Shorts Manager must:
 4. Short-form rendering, individual approval queue, and upload/publication only after explicit approval
 
 The existing `jyotirlingshivmathlive` scheduler is a separate project and must remain untouched.
+
+
+
+## Primary scripture source lookup
+
+The AI preparation pipeline now follows this evidence order:
+
+1. The user's own video transcript.
+2. A matched passage from a locally provisioned primary scripture PDF, with the source PDF page number recorded.
+3. Only after the existing full 48-hour retry window, the video's own description/title as an explicitly labelled fallback.
+
+The PDF lookup adapter is in `src/scripture_sources.py`. The public repository intentionally does not contain the two complete book PDFs. See [scripture_sources/README.md](scripture_sources/README.md) for the private runner-side file names and provisioning requirement.
+
+**Current limitation:** the uploaded PDFs in the ChatGPT conversation are not automatically available to GitHub Actions. Until the files are securely mounted into the runner at `scripture_sources/pdfs/`, the lookup returns `source_file_not_provisioned`; the pipeline continues waiting and does not claim a scripture match. The Shiv Puran PDF is a Hindi translation, and the Gita Yatharoop edition includes Sanskrit verses plus Hindi translation/commentary. The AI must distinguish these layers and cite PDF page numbers. OCR/text extraction quality must be checked before relying on a passage.
