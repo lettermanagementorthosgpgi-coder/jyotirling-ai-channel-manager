@@ -39,6 +39,7 @@ jobs:
         with:
           path: |
             .state/preparation.sqlite
+            .state/channel_inventory.json
             thumbnails/*.png
           key: jyotirling-ai-prep-${{ runner.os }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
