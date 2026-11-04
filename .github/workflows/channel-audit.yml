@@ -13,9 +13,6 @@ on:
         required: true
         type: boolean
         default: false
-  push:
-    branches:
-      - feature/new-upload-preparation-queue
   schedule:
     - cron: "0 * * * *"
 
