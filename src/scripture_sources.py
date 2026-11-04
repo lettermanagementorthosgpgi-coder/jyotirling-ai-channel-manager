@@ -168,20 +168,50 @@ def find_primary_scripture_source(video: dict, source_dir="scripture_sources/pdf
                     pages.append((score, page_number, text))
 
             if manual_mode:
-                section_markers = [i for i, (_, page_text) in enumerate(all_pages)
-                                   if section_name and section_name in page_text]
+                section_markers = []
+                for marker_index, (_, page_text) in enumerate(all_pages):
+                    marker_lines = [line.strip() for line in page_text.splitlines() if line.strip()]
+                    if (marker_lines and marker_lines[0].startswith("।। ॐ नमः")
+                            and re.search(r"सं[^\\s]{0,3}हता", " ".join(marker_lines[:3]))):
+                        section_markers.append(marker_index)
+
                 scoped_headings = list(exact_heading_pages)
+                section_start = None
+                section_end = len(all_pages)
                 if section_name:
-                    scoped_headings = []
-                    for heading_index in exact_heading_pages:
-                        previous_markers = [i for i in section_markers if i <= heading_index]
-                        if not previous_markers:
-                            continue
-                        section_start = previous_markers[-1]
-                        next_markers = [i for i in section_markers if i > section_start]
-                        section_end = next_markers[0] if next_markers else len(all_pages)
-                        if section_start <= heading_index < section_end:
-                            scoped_headings.append(heading_index)
+                    feed = video.get("programme_feed") or {}
+                    section_index = feed.get("section_index", video.get("section_index"))
+                    base_marker = next(
+                        (i for i, marker_index in enumerate(section_markers)
+                         if "पंचम खंड" in " ".join(
+                             line.strip() for line in all_pages[marker_index][1].splitlines()[:5])),
+                        None
+                    )
+                    marker_position = (base_marker + int(section_index)
+                                       if base_marker is not None and section_index is not None
+                                       else None)
+                    if marker_position is not None and 0 <= marker_position < len(section_markers):
+                        section_start = section_markers[marker_position]
+                        section_end = (section_markers[marker_position + 1]
+                                       if marker_position + 1 < len(section_markers)
+                                       else len(all_pages))
+                    else:
+                        section_candidates = [
+                            marker_index for marker_index in section_markers
+                            if section_name in " ".join(
+                                line.strip() for line in all_pages[marker_index][1].splitlines()[:5])
+                        ]
+                        if section_candidates:
+                            section_start = section_candidates[0]
+                            following = [i for i in section_markers if i > section_start]
+                            section_end = following[0] if following else len(all_pages)
+                    if section_start is None:
+                        scoped_headings = []
+                    else:
+                        scoped_headings = [
+                            heading_index for heading_index in exact_heading_pages
+                            if section_start <= heading_index < section_end
+                        ]
                 if not scoped_headings:
                     return {
                         "status": "requested_chapter_heading_not_found",
@@ -194,14 +224,9 @@ def find_primary_scripture_source(video: dict, source_dir="scripture_sources/pdf
 
                 allowed_pages = set()
                 for heading_index in scoped_headings:
-                    section_end = len(all_pages)
-                    if section_name:
-                        previous_markers = [i for i in section_markers if i <= heading_index]
-                        if previous_markers:
-                            next_markers = [i for i in section_markers if i > previous_markers[-1]]
-                            section_end = next_markers[0] if next_markers else len(all_pages)
+                    chapter_section_end = section_end if section_start is not None else len(all_pages)
                     next_chapters = [
-                        i for i in range(heading_index + 1, section_end)
+                        i for i in range(heading_index + 1, chapter_section_end)
                         if any(generic_heading.match(line.strip())
                                for line in all_pages[i][1].splitlines() if line.strip())
                     ]
@@ -209,7 +234,7 @@ def find_primary_scripture_source(video: dict, source_dir="scripture_sources/pdf
                     # In that case keep a bounded, sequential evidence window.
                     fallback_window = 21 if programme == "bhagavad_gita" else 8
                     chapter_end = (next_chapters[0] if next_chapters
-                                   else min(section_end, heading_index + fallback_window))
+                                   else min(chapter_section_end, heading_index + fallback_window))
                     allowed_pages.update(range(heading_index, chapter_end))
                 pages = [
                     (25 if page_no - 1 in scoped_headings else 10, page_no, page_text)
