@@ -83,19 +83,34 @@ def _prompt(role_instruction, video, previous, transcript):
 def _thumbnail_prompt(video, final_package):
     title = video.get("source_title") or video.get("title") or "Devotional video"
     description = video.get("source_description") or video.get("description") or ""
+    programme = video.get("programme")
+    chapter_title = video.get("chapter_title") or ""
+    if programme == "bhagavad_gita":
+        scene_direction = (
+            "Create a respectful, cinematic Kurukshetra scene from the Bhagavad Gita: Lord Krishna as the divine "
+            "charioteer teaching Arjuna on the chariot, with the battlefield distant and unobtrusive. The chapter "
+            "theme is the three kinds of faith (sattvic, rajasic and tamasic); use three subtle, balanced visual "
+            "motifs for faith, food, yajna and tapasya. Do NOT depict Lord Shiva, a trident, or unrelated deities."
+        )
+    else:
+        scene_direction = (
+            "Create a respectful, cinematic scene grounded in Shiv Puran Pancham Khanda chapter 5, "
+            "‘नास्तिक मत से त्रिपुर का मोहित होना’: show the three magnificent fortified cities of Tripura and "
+            "their rulers listening to a persuasive wandering teacher, with the sacred path and a distant temple "
+            "suggested symbolically. Do not substitute an unrelated Shiva-Parvati scene or invent a different episode."
+        )
     return (
-        "Create a complete, original, high-quality devotional YouTube thumbnail design in 16:9. "
-        "Use the evidence-grounded visual direction and headline below to choose the strongest scene. If no transcript is supplied, use the existing video description and title as fallback and still create a description-based thumbnail, without inventing details.  "
-        "composition, colours, typography and text placement. This must look like a finished thumbnail, "
-        "not a generic background. Mandatory: exact channel header JYOTIRLING SHIVMATH BARAULI LUCKNOW "
-        "at the top centre; the programme label SHIV MAHA PURAN for Shiv Puran or BHAGVADGITA for Gita; "
-        "and chapter number/name together with the chapter title. Leave the RIGHTMOST 28 percent clean and visually quiet for the user's "
-        "real photograph to be placed unchanged by the compositor; do not invent or depict the host. "
-        "All other design decisions are yours, grounded in the transcript when available, otherwise in the supplied video description and title. Never invent chapter details "
-        "or add unrelated deities/characters. Source video title: " + title +
-        ". Source description: " + description[:2500] +
-        ". Transcript-based final SEO and thumbnail brief: " + final_package[:5000] +
-        ". Render readable, correctly spelled Hindi/English text where possible, with strong mobile contrast."
+        "Create only original devotional background artwork for a finished 16:9 YouTube thumbnail. "
+        + scene_direction +
+        " No words, no letters, no numbers, no logos, no watermarks, no banners, no captions. "
+        "Do not depict the channel host or any portrait. Keep the RIGHTMOST 28 percent clean, dark and visually "
+        "quiet for the supplied real host photograph to be composited separately. Keep the LEFT and CENTRE "
+        "visually strong but leave a calm darker area for large Hindi title typography. "
+        "Use the following AI-reviewed creative brief as guidance, while keeping the specific scripture episode "
+        "above as the controlling subject. Video title: " + title +
+        ". Chapter title: " + chapter_title +
+        ". Source description: " + description[:1800] +
+        ". AI SEO and visual brief: " + final_package[:6500]
     )
 
 
@@ -234,7 +249,9 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                 if image_path.exists() and image_path.stat().st_size > 0:
                     thumbnail_result = {"status": "background_ready", "file": str(image_path)}
                 else:
-                    final_package = stages[ROLES[2][0]]["output"]
+                    final_package = stages[ROLES[1][0]]["output"]
+                    cross_review = stages[ROLES[2][0]]["output"]
+                    thumbnail_brief = final_package + "\n\nCross-review corrections:\n" + cross_review
                     # Cloudflare FLUX is the primary thumbnail-background generator.
                     # Keep other configured image providers as fallbacks.
                     image_order = (["cloudflare"] if "cloudflare" in providers else []) + [
@@ -245,7 +262,7 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                     for provider in image_order:
                         try:
                             image_bytes, image_model = generate_thumbnail_background(
-                                provider, _thumbnail_prompt(item, final_package))
+                                provider, _thumbnail_prompt(item, thumbnail_brief))
                             if not image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
                                 raise ValueError("Image provider did not return a PNG file")
                             image_path.write_bytes(image_bytes)
@@ -278,12 +295,12 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                     composition = compose_thumbnail(
                         thumbnail_result["file"], composed_path,
                         item.get("source_title") or item.get("title") or "विशेष आध्यात्मिक प्रवचन",
-                        video=item, final_package=stages[ROLES[2][0]]["output"])
+                        video=item, final_package=stages[ROLES[1][0]]["output"])
                     thumbnail_result.update(composition)
                     thumbnail_result["status"] = "thumbnail_ready_for_user_review"
                     thumbnail_result["note"] = (
-                        "Original portrait, header, author plaque and frame are embedded in "
-                        "the bundled legacy master JPEG.")
+                        "The exact channel header, programme label, chapter text, headline and "
+                        "supplied original portrait are composed separately for human review.")
                 except Exception as exc:
                     thumbnail_result = {
                         "status": "background_ready_composition_failed",
