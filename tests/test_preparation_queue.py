@@ -25,11 +25,25 @@ class PreparationQueueTests(unittest.TestCase):
         self.assertEqual(result["videos_in_queue"], 0)
         self.assertEqual(result["items"], [])
 
+    def test_current_day_uploads_are_prioritized_over_old_explicit_reviews(self):
+        videos = [
+            {"video_id": "old-review", "published_at": "2026-11-01T10:00:00Z", "title": "Shiv ji dwara devtaon ko bhejna"},
+            {"video_id": "today-live", "published_at": "2026-11-04T09:00:00Z", "stream_started_at": "2026-11-04T03:30:00Z", "title": "Tripur vadh ki prarthna"},
+        ]
+        result = build_new_upload_preparation_queue(
+            videos, "2026-11-04", end_date="2026-11-04",
+            include_video_ids=["old-review"], timezone="Asia/Kolkata")
+        self.assertEqual([x["video_id"] for x in result["items"]], ["today-live", "old-review"])
+        self.assertIsNotNone(result["items"][0]["programme_feed"])
+        self.assertIsNone(result["items"][1]["programme_feed"])
+
     def test_explicit_review_video_can_be_included_outside_date(self):
         videos = [{"video_id": "review", "published_at": "2026-11-03T10:00:00Z", "title": "Bhagavad Gita"}]
         result = build_new_upload_preparation_queue(videos, "2026-11-04", end_date="2026-11-04", include_video_ids=["review"], timezone="Asia/Kolkata")
         self.assertEqual(len(result["items"]), 1)
         self.assertTrue(result["items"][0]["included_by_explicit_id"])
+        self.assertIsNone(result["items"][0]["programme_feed"])
+        self.assertIsNone(result["items"][0]["chapter_number"])
 
 if __name__ == "__main__":
     unittest.main()

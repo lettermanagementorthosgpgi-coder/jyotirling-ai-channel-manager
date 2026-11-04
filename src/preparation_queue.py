@@ -59,7 +59,8 @@ def build_new_upload_preparation_queue(videos, start_date, timezone="Asia/Kolkat
 
         programme = _classify_programme(video)
         slot = "evening" if programme == "bhagavad_gita" else "morning" if programme == "shiv_puran" else None
-        feed = ((programme_feeds or {}).get(slot) or {}) if slot else {}
+        is_current_day_upload = published_local.date() == cutoff and not explicitly_selected
+        feed = ((programme_feeds or {}).get(slot) or {}) if slot and is_current_day_upload else {}
         source_text = " ".join(str(video.get(key) or "") for key in ("title", "description"))
         chapter_number = _chapter_number(source_text) or feed.get("chapter_number")
         chapter_title = feed.get("chapter_title") if chapter_number == feed.get("chapter_number") else None
@@ -116,7 +117,9 @@ def build_new_upload_preparation_queue(videos, start_date, timezone="Asia/Kolkat
             }
         })
 
-    queue.sort(key=lambda item: item["published_local"])
+    # Process today's actual uploads before any explicitly selected historical review videos.
+    queue.sort(key=lambda item: item["published_local"], reverse=True)
+    queue.sort(key=lambda item: item["included_by_explicit_id"])
     return {
         "start_date_local": start_date,
         "end_date_local": end_date,

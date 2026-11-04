@@ -217,6 +217,15 @@ def main():
     ai_result = run_ai_preparation(queue, ROOT / ".state" / "preparation.sqlite",
                                    ROOT / "transcripts",
                                    force_reprocess_video_ids=prep.get("force_reprocess_video_ids", []))
+    ready_video_ids = {
+        item.get("video_id") for item in ai_result.get("items", [])
+        if item.get("ai_preparation", {}).get("status") == "ready_for_user_review"
+    }
+    for queued_item in queue.get("items", []):
+        queued_id = queued_item.get("video_id")
+        if queued_id and queued_id not in ready_video_ids:
+            for suffix in ("_background.png", "_thumbnail.png"):
+                (thumbnail_dir / f"{queued_id}{suffix}").unlink(missing_ok=True)
     result["new_upload_preparation"] = {
         "start_date_local": queue["start_date_local"],
         "end_date_local": queue.get("end_date_local"),
