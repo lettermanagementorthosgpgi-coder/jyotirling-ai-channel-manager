@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 from .ai_providers import available_providers, generate, generate_thumbnail_background
 from .thumbnail_composer import compose_thumbnail
+from .scripture_sources import find_primary_scripture_source
 
 ROLES = [
     ("AI-1_data_analysis",
@@ -42,6 +43,7 @@ def _prompt(role_instruction, video, previous, transcript):
         },
         "transcript_available": bool(transcript),
         "transcript": transcript or None,
+        "primary_scripture_source": video.get("primary_scripture_source"),
         "previous_stage_outputs": previous,
         "thumbnail_brand_rules": [
             "YouTube thumbnail must be 16:9 and designed freely by AI from the full transcript for maximum relevance, clarity and click appeal.",
@@ -123,6 +125,8 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
             if transcript:
                 db.execute("DELETE FROM source_retry WHERE video_id=?", (vid,))
             else:
+                scripture_source = find_primary_scripture_source(item)
+                item["primary_scripture_source"] = scripture_source
                 now = datetime.now(timezone.utc)
                 retry_row = db.execute(
                     "SELECT first_seen_at, fallback_allowed_at FROM source_retry WHERE video_id=?",
@@ -140,7 +144,7 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                     last_attempt_at=excluded.last_attempt_at""",
                     (vid, first_seen_at, now.isoformat(), fallback_allowed_at))
                 db.commit()
-                if now < fallback_time:
+                if now < fallback_time and scripture_source.get("status") != "matched":
                     remaining = max(0, int((fallback_time - now).total_seconds() // 3600))
                     item["ai_preparation"] = {
                         "status": "waiting_for_transcript_or_primary_scripture_source",
@@ -153,7 +157,7 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                     }
                     result_items.append(item)
                     continue
-                source_basis = "description_fallback_after_48_hours"
+                source_basis = ("primary_scripture" if scripture_source.get("status") == "matched" else "description_fallback_after_48_hours")
 
             errors = []
             if not providers:
