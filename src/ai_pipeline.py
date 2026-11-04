@@ -65,6 +65,7 @@ def _prompt(role_instruction, video, previous, transcript):
     }
     return (
         "You are a specialist in a two-provider review pipeline for the JYOTIRLING SHIVMATH channel.\n"
+        "Evidence hierarchy: user transcript first; otherwise use a matched primary scripture source pack with PDF page references; only after the 48-hour wait may description/title be used. Distinguish Sanskrit verses from Hindi translation and commentary; never attribute commentary to the deity as verbatim speech.\n"
         + role_instruction + "\nReturn a structured, practical response.\n"
         + json.dumps(evidence, ensure_ascii=False, indent=2)
     )
