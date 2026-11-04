@@ -2,7 +2,11 @@
   "channel_brand": "JYOTIRLING SHIVMATH BARAULI LUCKNOW",
   "channel_handle": "@MAHANTRAJESHKUMARTIWARIRANJAN",
   "timezone": "Asia/Kolkata",
-  "audit": {"max_videos_per_run":5000,"include_unlisted":false,"daily_analytics_days":30},
+  "audit": {
+    "max_videos_per_run": 5000,
+    "include_unlisted": false,
+    "daily_analytics_days": 30
+  },
   "programme_feeds": {
     "feed_date_local": "2026-11-04",
     "morning": {
@@ -13,7 +17,38 @@
       "chapter_number": 5,
       "chapter_title": null,
       "source_of_truth": "Soochi Shiv Puran ki.pdf",
-      "note": "Use only the authoritative contents PDF to resolve the exact chapter title and topic; do not infer it from Bhagavad Gita or guess."
+      "note": "Use only the authoritative contents PDF to resolve the exact chapter title and topic; do not infer it from Bhagavad Gita or guess.",
+      "section_index": 0,
+      "book_sequence": [
+        {
+          "name": "पंचम खंड",
+          "chapter_count": 59
+        },
+        {
+          "name": "शतरुद्र संहिता",
+          "chapter_count": 42
+        },
+        {
+          "name": "कोटिरुद्र संहिता",
+          "chapter_count": 43
+        },
+        {
+          "name": "उमा संहिता",
+          "chapter_count": 51
+        },
+        {
+          "name": "कैलाश संहिता",
+          "chapter_count": 23
+        },
+        {
+          "name": "वायवीय संहिता (पूर्वार्ध)",
+          "chapter_count": 34
+        },
+        {
+          "name": "वायवीय संहिता (उत्तरार्ध)",
+          "chapter_count": 18
+        }
+      ]
     },
     "evening": {
       "programme": "bhagavad_gita",
@@ -22,14 +57,26 @@
       "chapter_title": "श्रद्धात्रयविभागयोग",
       "chapter_title_english": "The Divisions of Faith",
       "source_of_truth": "bhagavad_gita_yatharoop.pdf",
-      "note": "This is the evening Bhagavad Gita feed only. Keep it independent from the morning Shiv Puran feed."
+      "note": "Start from chapter 17 on feed_date_local and advance one chapter per local calendar date, stopping after chapter 18.",
+      "total_chapters": 18,
+      "chapter_titles": {
+        "17": "श्रद्धात्रयविभागयोग",
+        "18": "मोक्षसंन्यासयोग"
+      }
     }
   },
   "new_upload_preparation": {
     "start_date_local": "2026-11-02",
-    "include_video_ids": ["AQzeCs48jhk"],
-    "force_reprocess_video_ids": ["AQzeCs48jhk"],
+    "include_video_ids": [
+      "AQzeCs48jhk"
+    ],
+    "force_reprocess_video_ids": [
+      "AQzeCs48jhk"
+    ],
     "scope": "every public channel upload published on or after this date, plus explicitly listed review videos"
   },
-  "approval": {"required_for_all_channel_changes":true,"required_for_upload_and_publish":true}
+  "approval": {
+    "required_for_all_channel_changes": true,
+    "required_for_upload_and_publish": true
+  }
 }
