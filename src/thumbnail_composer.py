@@ -1,4 +1,4 @@
-"""Compose finished scripture thumbnails with exact channel text and the supplied original portrait."""
+"""Compose fixed Hindi scripture thumbnails with the original author portrait on the LEFT."""
 from pathlib import Path
 import base64
 import re
@@ -9,26 +9,19 @@ PHOTO = ROOT / "assets" / "author_photo.jpeg"
 PHOTO_B64 = ROOT / "assets" / "author_photo.jpeg.b64"
 DEVANAGARI_BOLD = Path("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf")
 DEVANAGARI_REGULAR = Path("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf")
-LATIN_BOLD = Path("/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf")
-LATIN_REGULAR = Path("/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf")
 
 
 def _photo_path():
     if PHOTO.is_file():
         return PHOTO
     if not PHOTO_B64.is_file():
-        raise FileNotFoundError("Author photo asset is missing")
+        raise FileNotFoundError("Original author photo asset is missing")
     PHOTO.write_bytes(base64.b64decode(PHOTO_B64.read_text(encoding="ascii").strip()))
     return PHOTO
 
 
-def _font(size, devanagari=True, bold=True):
-    candidates = (
-        [DEVANAGARI_BOLD, DEVANAGARI_REGULAR] if devanagari and bold else
-        [DEVANAGARI_REGULAR, DEVANAGARI_BOLD] if devanagari else
-        [LATIN_BOLD, LATIN_REGULAR] if bold else
-        [LATIN_REGULAR, LATIN_BOLD]
-    )
+def _font(size, bold=True):
+    candidates = [DEVANAGARI_BOLD, DEVANAGARI_REGULAR] if bold else [DEVANAGARI_REGULAR, DEVANAGARI_BOLD]
     for path in candidates:
         if path.is_file():
             try:
@@ -39,7 +32,7 @@ def _font(size, devanagari=True, bold=True):
 
 
 def _clean_markup(value):
-    value = re.sub(r"[\*_`]", "", str(value or ""))
+    value = re.sub(r"[\*_]", "", str(value or ""))
     return re.sub(r"\s+", " ", value).strip(" :-—")
 
 
@@ -49,15 +42,18 @@ def _brief_lines(final_package):
 
 def _extract_headline(final_package, fallback):
     lines = _brief_lines(final_package)
+    labels = ("संक्षिप्त हिंदी headline", "मुख्य headline", "thumbnail headline", "thumbnail text")
     for i, line in enumerate(lines):
-        if "संक्षिप्त हिंदी headline" in line or "मुख्य headline" in line:
-            candidate = re.sub(r"^.*?(?:संक्षिप्त हिंदी headline|मुख्य headline)\s*[:：]", "", line, flags=re.I)
-            candidate = _clean_markup(candidate)
+        if any(label.lower() in line.lower() for label in labels):
+            candidate = re.sub(
+                r"^.*?(?:संक्षिप्त हिंदी headline|मुख्य headline|thumbnail headline|thumbnail text)\s*[:：]",
+                "", line, flags=re.I)
+            candidate = _clean_markup(candidate).strip("“”\"'")
             if candidate:
-                return candidate.strip("“”\"'")
+                return candidate
             if i + 1 < len(lines):
                 return _clean_markup(lines[i + 1]).strip("“”\"'")
-    return fallback
+    return _clean_markup(fallback) or "विशेष आध्यात्मिक प्रवचन"
 
 
 def _extract_chapter_text(video, final_package):
@@ -70,10 +66,10 @@ def _extract_chapter_text(video, final_package):
         if "अध्याय-सूचना" in line or "अध्याय पहचान" in line:
             candidate = re.sub(r"^.*?(?:अध्याय-सूचना(?: एक साथ)?|अध्याय पहचान)\s*[:：]", "", line)
             candidate = _clean_markup(candidate).strip("“”\"'")
-            if "अध्याय" in candidate and len(candidate) > 8:
+            if "अध्याय" in candidate and len(candidate) > 5:
                 return candidate
     for line in lines:
-        match = re.search(r"`(अध्याय\s*[0-9०-९]+\s*[—-]\s*[^`]+)`", line)
+        match = re.search(r"(अध्याय\s*[0-9०-९]+\s*[—-]\s*.+)", line)
         if match:
             return _clean_markup(match.group(1))
     return f"अध्याय {chapter}" if chapter else "विशेष आध्यात्मिक प्रवचन"
@@ -100,9 +96,32 @@ def _wrap_text(draw, text, font, max_width, max_lines=2):
     return lines
 
 
-def _draw_centered(draw, xy, text, font, fill, anchor="mm", stroke_width=0, stroke_fill=(0, 0, 0)):
-    draw.text(xy, text, font=font, fill=fill, anchor=anchor,
+def _centered(draw, xy, text, font, fill, stroke_width=2, stroke_fill=(18, 10, 3, 255)):
+    draw.text(xy, text, font=font, fill=fill, anchor="mm",
               stroke_width=stroke_width, stroke_fill=stroke_fill)
+
+
+def _ornamental_plaque(draw, bounds, fill=(8, 20, 39, 238), outline=(239, 195, 103, 255), width=4):
+    """Compact double-edged plaque with pointed ends, not a plain rectangle."""
+    x1, y1, x2, y2 = bounds
+    h = y2 - y1
+    inset = min(32, h // 2)
+    points = [(x1 + inset, y1), (x2 - inset, y1), (x2, y1 + h // 2),
+              (x2 - inset, y2), (x1 + inset, y2), (x1, y1 + h // 2)]
+    draw.polygon(points, fill=fill)
+    draw.line(points + [points[0]], fill=outline, width=width, joint="curve")
+    inner = [(x1 + inset + 9, y1 + 7), (x2 - inset - 9, y1 + 7),
+             (x2 - 9, y1 + h // 2), (x2 - inset - 9, y2 - 7),
+             (x1 + inset + 9, y2 - 7), (x1 + 9, y1 + h // 2)]
+    draw.line(inner + [inner[0]], fill=(255, 232, 174, 180), width=2, joint="curve")
+
+
+def _glow_text(draw, xy, text, font, fill):
+    x, y = xy
+    draw.text((x + 3, y + 5), text, font=font, fill=(0, 0, 0, 170), anchor="mm",
+              stroke_width=7, stroke_fill=(0, 0, 0, 190))
+    draw.text((x, y), text, font=font, fill=fill, anchor="mm",
+              stroke_width=3, stroke_fill=(22, 12, 4, 245))
 
 
 def compose_thumbnail(background_path, output_path, title, video=None, final_package=None):
@@ -115,77 +134,69 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
     draw = ImageDraw.Draw(overlay)
 
     programme = video.get("programme")
-    programme_label = "BHAGVADGITA" if programme == "bhagavad_gita" else "SHIV MAHA PURAN"
+    book_label = "भगवद्गीता" if programme == "bhagavad_gita" else "शिव महापुराण"
     chapter_text = _extract_chapter_text(video, final_package)
     section_name = video.get("khanda_name")
     if section_name and section_name not in chapter_text:
         chapter_text = f"{section_name} — {chapter_text}"
     headline = _extract_headline(final_package, chapter_text)
 
-    # Clear, exact channel header.
-    draw.rounded_rectangle((36, 22, 1244, 94), radius=22,
-                           fill=(7, 15, 31, 225), outline=(235, 190, 94, 255), width=3)
-    header_font = _font(32, devanagari=False, bold=True)
-    _draw_centered(draw, (640, 58), "JYOTIRLING SHIVMATH BARAULI LUCKNOW",
-                   header_font, (255, 248, 226, 255), stroke_width=1, stroke_fill=(0, 0, 0, 220))
+    # FIXED TOP-MIDDLE identity: two Hindi lines in a compact ornamental plaque.
+    _ornamental_plaque(draw, (340, 18, 940, 116), fill=(7, 19, 39, 225))
+    _centered(draw, (640, 53), "ज्योतिर्लिंग शिवमठ", _font(38), (255, 239, 193, 255))
+    _centered(draw, (640, 88), "बरौली, लखनऊ", _font(23), (255, 255, 255, 255),
+              stroke_width=1, stroke_fill=(20, 12, 4, 255))
 
-    # Programme label.
-    draw.rounded_rectangle((54, 120, 430, 178), radius=18,
-                           fill=(222, 171, 65, 245), outline=(255, 236, 180, 255), width=2)
-    programme_font = _font(28, devanagari=False, bold=True)
-    _draw_centered(draw, (242, 149), programme_label, programme_font, (26, 20, 12, 255))
+    # Main subject is directly over the artwork, never inside a large dark panel.
+    headline_font = _font(65)
+    headline_lines = _wrap_text(draw, headline, headline_font, 830, max_lines=3)
+    if len(headline_lines) == 1:
+        start_y, step = 330, 86
+    elif len(headline_lines) == 2:
+        start_y, step = 300, 84
+    else:
+        start_y, step = 270, 78
+    for index, line in enumerate(headline_lines):
+        _glow_text(draw, (790, start_y + index * step), line, headline_font,
+                   (255, 225, 133, 255))
 
-    # Main information panel; it protects typography from busy or bright AI artwork.
-    draw.rounded_rectangle((42, 202, 930, 602), radius=30,
-                           fill=(5, 12, 27, 178), outline=(231, 184, 82, 230), width=3)
-    headline_font = _font(62, devanagari=True, bold=True)
-    headline_lines = _wrap_text(draw, headline, headline_font, 820, max_lines=2)
-    y = 286 if len(headline_lines) == 1 else 260
-    for line in headline_lines:
-        draw.text((82, y), line, font=headline_font, fill=(255, 225, 142, 255),
-                  stroke_width=3, stroke_fill=(20, 13, 5, 255))
-        y += 84
+    # Chapter information sits immediately above the bottom book plaque.
+    chapter_font = _font(30)
+    chapter_lines = _wrap_text(draw, chapter_text, chapter_font, 790, max_lines=2)
+    chapter_start_y = 574 if len(chapter_lines) == 1 else 552
+    for index, line in enumerate(chapter_lines):
+        _glow_text(draw, (790, chapter_start_y + index * 38), line, chapter_font,
+                   (255, 255, 255, 255))
 
-    chapter_font = _font(31, devanagari=True, bold=True)
-    chapter_lines = _wrap_text(draw, chapter_text, chapter_font, 820, max_lines=2)
-    chapter_y = max(y + 24, 455)
-    for line in chapter_lines:
-        draw.text((84, chapter_y), line, font=chapter_font, fill=(255, 255, 255, 255),
-                  stroke_width=2, stroke_fill=(0, 0, 0, 255))
-        chapter_y += 48
-
-    # Composite the supplied real portrait at its original aspect ratio, without cropping or retouching.
+    # Original author portrait stays on the LEFT, unflipped and unretouched.
     portrait = Image.open(_photo_path()).convert("RGB")
-    portrait.thumbnail((248, 360), Image.Resampling.LANCZOS)
-    x = 1280 - portrait.width - 34
-    y_photo = 214
+    portrait.thumbnail((238, 338), Image.Resampling.LANCZOS)
+    x_photo, y_photo = 42, 190
     p = 7
-    draw.rounded_rectangle((x-p, y_photo-p, x+portrait.width+p, y_photo+portrait.height+p),
-                           radius=18, fill=(245, 205, 105, 255),
+    draw.rounded_rectangle((x_photo - p, y_photo - p,
+                            x_photo + portrait.width + p, y_photo + portrait.height + p),
+                           radius=22, fill=(245, 205, 105, 255),
                            outline=(255, 239, 190, 255), width=3)
 
-    # A dark footer band masks any stray pseudo-lettering produced by image models
-    # and keeps the lower edge visually clean across all programmes.
-    draw.rectangle((0, 620, 1280, 720), fill=(5, 12, 27, 225))
-    draw.line((0, 620, 1280, 620), fill=(231, 184, 82, 255), width=2)
+    # FIXED BOTTOM-MIDDLE book name in Hindi.
+    _ornamental_plaque(draw, (430, 644, 850, 710), fill=(7, 19, 39, 242), width=3)
+    _centered(draw, (640, 677), book_label, _font(36), (255, 239, 193, 255))
 
-    # Merge the graphic elements, then paste the unaltered portrait pixels.
+    # Paste the exact original portrait after graphics so no overlay touches its pixels.
     image = Image.alpha_composite(image, overlay).convert("RGB")
-    image.paste(portrait, (x, y_photo))
+    image.paste(portrait, (x_photo, y_photo))
 
-    # Name plaque below the portrait.
-    draw_name = ImageDraw.Draw(image)
-    name_font = _font(16, devanagari=False, bold=True)
-    name = "Mahant Rajesh Kumar Tiwari Ranjan"
-    name_lines = _wrap_text(draw_name, name, name_font, 218, max_lines=2)
-    plaque_top = min(610, y_photo + portrait.height + 16)
-    draw_name.rounded_rectangle((x-28, plaque_top, 1260, min(696, plaque_top + 62)),
-                                radius=12, fill=(7, 15, 31), outline=(235, 190, 94), width=2)
-    line_y = plaque_top + 10
+    # Hindi author identification plaque below the left-side portrait.
+    name_draw = ImageDraw.Draw(image)
+    name = "महंत राजेश कुमार तिवारी ‘रंजन’"
+    name_font = _font(19)
+    name_lines = _wrap_text(name_draw, name, name_font, 270, max_lines=2)
+    _ornamental_plaque(name_draw, (20, 540, 302, 615), fill=(7, 19, 39, 245), width=2)
+    name_y = 565 if len(name_lines) == 1 else 555
     for line in name_lines:
-        draw_name.text((x-15, line_y), line, font=name_font, fill=(255, 248, 226),
-                       stroke_width=1, stroke_fill=(0, 0, 0))
-        line_y += 19
+        _centered(name_draw, (161, name_y), line, name_font, (255, 248, 226, 255),
+                  stroke_width=1, stroke_fill=(0, 0, 0, 255))
+        name_y += 27
 
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -193,14 +204,16 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
     return {
         "file": str(output),
         "author_photo_included": True,
-        "author_photo_source": "assets/author_photo.jpeg",
-        "master_template": None,
-        "programme_template": "ai_creative_with_brand_typography",
+        "author_photo_source": "assets/author_photo.jpeg.b64",
+        "author_photo_position": "left",
+        "author_photo_unchanged": True,
+        "master_template": "fixed_hindi_scripture_branding_v2",
+        "programme_template": "fixed_hindi_scripture_branding_v2",
         "dimensions": "1280x720",
-        "channel_header": "JYOTIRLING SHIVMATH BARAULI LUCKNOW",
-        "programme_label": programme_label,
+        "channel_header": "ज्योतिर्लिंग शिवमठ | बरौली, लखनऊ",
+        "programme_label": book_label,
         "chapter_text": chapter_text,
         "thumbnail_headline": headline,
-        "author_name": "Mahant Rajesh Kumar Tiwari Ranjan",
-        "author_photo_unchanged": True,
+        "author_name": "महंत राजेश कुमार तिवारी ‘रंजन’",
+        "background_overlay": "localized_text_shadow_only",
     }
