@@ -54,7 +54,7 @@ def _extract_headline(final_package, fallback):
                 return candidate
             if i + 1 < len(lines):
                 return _clean_markup(lines[i + 1]).strip("“”\"'")
-    return _clean_markup(fallback)
+    return ""
 
 
 def _extract_chapter_text(video, final_package):

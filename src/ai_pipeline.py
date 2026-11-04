@@ -49,8 +49,11 @@ def _validate_stage_output(role, output, video):
     if anchors and not any(term in lowered for term in anchors):
         return False, f"AI response does not contain a verified {programme} subject anchor."
     if role == "AI-2_youtube_seo_and_thumbnail_brief" and not any(
-            term in lowered for term in ("thumbnail", "थंबनेल", "शीर्षक", "title")):
-        return False, "SEO stage omitted title/thumbnail deliverable markers."
+            term in lowered for term in ("संक्षिप्त हिंदी headline", "मुख्य headline", "thumbnail headline", "थंबनेल शीर्षक")):
+        return False, "SEO stage omitted the explicit Hindi thumbnail-headline field."
+    if role == "AI-3_cross_review" and not any(
+            term in lowered for term in ("सत्यापन", "सुधार", "त्रुटि", "verify", "correction", "review")):
+        return False, "Cross-review did not report a verification or correction result."
     return True, None
 
 

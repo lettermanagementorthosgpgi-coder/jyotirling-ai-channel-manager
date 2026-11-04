@@ -18,7 +18,7 @@ def _classify_programme(video):
 
 
 def _chapter_number(text):
-    match = re.search(r"(?:अध्याय|adhyay|chapter)\\s*[-:#]?\\s*([0-9]{1,2})", text, re.I)
+    match = re.search(r"(?:अध्याय|adhyay|chapter)\s*[-:#]?\s*([0-9]{1,2})", text, re.I)
     return int(match.group(1)) if match else None
 
 
