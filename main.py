@@ -31,6 +31,8 @@ def main():
     if manual_range and (not manual_from or not manual_to):
         raise ValueError("Manual date range requires both MANUAL_FROM_DATE and MANUAL_TO_DATE (YYYY-MM-DD).")
     try:
+        if os.getenv("FORCE_MANUAL_BOOK_MODE", "false").strip().lower() == "true":
+            raise RuntimeError("Manual book-mode thumbnail test requested; skipping YouTube API entirely.")
         youtube, analytics, reporting, session = build_youtube_services(ROOT)
         result = run_channel_audit(youtube, analytics, reporting=reporting,
             reporting_session=session,
