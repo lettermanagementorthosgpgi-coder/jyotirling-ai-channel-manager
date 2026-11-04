@@ -95,6 +95,13 @@ The planned Shorts Manager must:
 - Track each candidate's state (for example: Draft, Pending Approval, Approved, Uploaded/Published, Rejected) and avoid duplicate extraction or repeat publishing.
 
 
+
+## Manual date-range selection and transcript retry window
+
+- The manual workflow dispatch now accepts inclusive `from_date` and `to_date` inputs in `YYYY-MM-DD` format. When both are supplied, only public uploads whose local publication date falls inside that range are placed in the preparation queue; otherwise the normal new-upload scope is used.
+- When a new video has no transcript, AI drafting is held for a full 48 hours instead of immediately using the description. The first-seen time and fallback-eligible time are stored in the persistent SQLite preparation state. Public transcript discovery is retried each hourly run. The current implementation reports that primary-scripture-source lookup is not yet connected; it does not pretend that a scripture source was found. After the 48-hour window, the existing description/title may be used as a clearly labelled fallback.
+- Manual date-range selection currently scopes the preparation queue and creates draft recommendations only. Direct YouTube metadata/thumbnail updates and Gmail HTML/PDF reports remain separate implementation tasks; no such changes are performed by this workflow today.
+
 ## Quota protection
 
 - The channel inventory is persisted in the GitHub Actions cache. Hourly runs stop scanning the newest-first uploads playlist when they encounter the first already-known video, and fetch full video details only for newly discovered IDs. The first successful run builds the initial inventory; subsequent runs should normally use one uploads-playlist page plus the channel lookup.
