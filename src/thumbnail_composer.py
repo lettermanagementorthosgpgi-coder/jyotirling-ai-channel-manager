@@ -32,7 +32,8 @@ def _font(size, bold=True):
 
 
 def _clean_markup(value):
-    value = re.sub(r"[\*_]", "", str(value or ""))
+    value = str(value or "").replace(chr(96), "")
+    value = re.sub(r"[\\*_]", "", value)
     return re.sub(r"\s+", " ", value).strip(" :-—")
 
 
