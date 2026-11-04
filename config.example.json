@@ -3,7 +3,7 @@
   "channel_handle": "@MAHANTRAJESHKUMARTIWARIRANJAN",
   "timezone": "Asia/Kolkata",
   "audit": {
-    "max_videos_per_run": 50,
+    "max_videos_per_run": 10,
     "include_unlisted": false,
     "daily_analytics_days": 30
   },
