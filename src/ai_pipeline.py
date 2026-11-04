@@ -56,7 +56,7 @@ def _prompt(role_instruction, video, previous, transcript):
             "FIXED 16:9 MASTER LAYOUT; do not redesign or move permanent elements.",
             "Original supplied author photograph is always on the LEFT, same orientation, unchanged and unretouched.",
             "TOPMOST TOP-MIDDLE ornamental designer plaque, aligned close to the upper edge (not lowered into the picture): line 1 exactly 'ज्योतिर्लिंग शिवमठ'; line 2 exactly 'बरौली, लखनऊ'. Both lines in Hindi.",
-            "The background artwork must reserve the upper-centre band (top 18 percent of the image, central 48 percent width) for this plaque: only sky or soft distant background there; absolutely no deity/character face, head, crown, halo, hand or important subject detail behind it.",
+            "The background artwork must reserve the upper-centre band (top 14 percent of the image, central 48 percent width) for this plaque: only sky or soft distant background there; absolutely no deity/character face, head, crown, halo, hand or important subject detail behind it.",
             "Place Krishna/Arjuna or Shiva/other chapter figures slightly lower so every face is fully visible BELOW the top plaque and never hidden by it.",
             "BOTTOM-MIDDLE ornamental designer plaque: exactly 'शिव महापुराण' for Shiv Puran or 'भगवद्गीता' for Bhagavad Gita.",
             "Place the verified chapter number and chapter title immediately ABOVE the bottom book plaque.",
@@ -122,7 +122,7 @@ def _thumbnail_prompt(video, final_package):
         "on the LEFT. Keep the LEFT 22 percent relatively calm for that portrait, but do not make it a dark blank "
         "strip. CRITICAL TOP SAFE ZONE: leave the top-centre band completely free of faces, heads, crowns, hair, "
         "halos, hands, weapons and other important subject details. Specifically, the central 48 percent of image "
-        "width from the top edge down to 18 percent of image height must contain only quiet sky, distant architecture "
+        "width from the top edge down to 14 percent of image height must contain only quiet sky, distant architecture "
         "or soft background texture. The deity and companion faces must begin BELOW this band, fully visible and "
         "never behind the top-centre title plaque. Compose the main figures slightly lower in the frame to preserve "
         "their complete faces below the plaque. Keep the CENTRE and RIGHT visually rich and chapter-specific, with "
