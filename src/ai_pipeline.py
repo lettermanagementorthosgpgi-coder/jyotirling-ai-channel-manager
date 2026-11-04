@@ -48,11 +48,20 @@ def _validate_stage_output(role, output, video):
         anchors = ()
     if anchors and not any(term in lowered for term in anchors):
         return False, f"AI response does not contain a verified {programme} subject anchor."
+    source = video.get("primary_scripture_source") or {}
+    chapter_mentions = re.findall(r"(?:अध्याय|adhyay|chapter)\s*([0-9०-९]{1,2})", text, re.I)
+    if chapter_mentions:
+        if not source.get("chapter_heading_verified"):
+            return False, "AI mentioned a chapter number, but the original PDF did not verify its printed heading."
+        devanagari = str.maketrans("०१२३४५६७८९", "0123456789")
+        expected = video.get("chapter_number")
+        if expected and any(int(value.translate(devanagari)) != int(expected) for value in chapter_mentions):
+            return False, "AI mentioned a chapter number that conflicts with the PDF-checked chapter."
     if role == "AI-2_youtube_seo_and_thumbnail_brief" and not any(
             term in lowered for term in ("संक्षिप्त हिंदी headline", "मुख्य headline", "thumbnail headline", "थंबनेल शीर्षक")):
         return False, "SEO stage omitted the explicit Hindi thumbnail-headline field."
     if role == "AI-3_cross_review" and not any(
-            term in lowered for term in ("सत्यापन", "सुधार", "त्रुटि", "verify", "correction", "review")):
+            term in lowered for term in ("सत्यापन", "समीक्षा", "जाँच", "जांच", "सुधार", "त्रुटि", "verify", "correction", "review")):
         return False, "Cross-review did not report a verification or correction result."
     return True, None
 
@@ -112,8 +121,8 @@ def _prompt(role_instruction, video, previous, transcript):
     }
     return (
         "You are a specialist in a two-provider review pipeline for the JYOTIRLING SHIVMATH channel.\n"
-        "Evidence hierarchy: user transcript first; otherwise use a matched primary scripture source pack with PDF page references; only after the 48-hour wait may description/title be used. When a scripture pack is matched, use its page-cited excerpts as evidence even though transcript_available is false. Distinguish Sanskrit verses from Hindi translation and commentary; never attribute commentary to the deity as verbatim speech.\n"
-        + role_instruction + "\nReturn a structured, practical response.\n"
+        "Evidence hierarchy: use the full YouTube transcript for the actual spoken topic. ALWAYS cross-check the chapter number and printed chapter heading against the matched primary-scripture PDF evidence, even when a transcript exists. The transcript determines what was spoken; the book verifies the chapter and scripture reference. If the transcript topic and expected book chapter conflict, flag the discrepancy and do not force the book chapter into the title or thumbnail. If the PDF does not expose the exact printed heading, state that chapter verification is pending and omit chapter numbering from the thumbnail. If transcript is absent, use matched page-cited scripture excerpts; only after the 48-hour wait may description/title be used. Distinguish Sanskrit verses from Hindi translation and commentary; never attribute commentary to the deity as verbatim speech.\n"
+        + role_instruction + "\nReturn a structured Hindi-first response. AI-2 MUST include the exact field label 'संक्षिप्त हिंदी headline: ...' with a short, accurate headline. Include title options, complete description, tags, hashtags, chapter-verification status, and visual brief. AI-3 MUST state its verification result and corrections.\n"
         + json.dumps(evidence, ensure_ascii=False, indent=2)
     )
 
