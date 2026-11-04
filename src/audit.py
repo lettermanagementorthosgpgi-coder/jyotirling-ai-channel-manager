@@ -344,7 +344,6 @@ def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=Fals
             "days_requested":(analytics_end-analytics_start).days+1},
         "scan_scope":{"mode":"manual_date_range" if manual_mode else "daily_targeted",
             "manual_from_date":manual_from_date,"manual_to_date":manual_to_date,
-            "rolling_review_date":None if manual_mode else review_date.isoformat(),
             "rolling_48_hours_since":None if manual_mode else rolling_48h_cutoff.isoformat(),
             "rolling_review_date":None if manual_mode else review_date.isoformat(),
             "full_channel_video_details_refetched":False},
