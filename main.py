@@ -41,6 +41,8 @@ def main():
             manual_from_date=manual_from or None,
             manual_to_date=manual_to or None,
             timezone=config.get("timezone", "Asia/Kolkata"))
+        if not result.get("channel", {}).get("id") or not result.get("videos"):
+            raise RuntimeError("YouTube API returned no usable channel/video inventory; switching to book-based manual mode.")
     except Exception as exc:
         # If YouTube inventory/data cannot be obtained, prepare today's scripture
         # programmes directly from the provisioned primary books instead.
