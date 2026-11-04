@@ -34,6 +34,7 @@ on:
       - src/scripture_sources.py
       - src/thumbnail_composer.py
       - src/ai_pipeline.py
+      - src/audit.py
       - src/preparation_queue.py
       - tests/**
       - main.py
