@@ -96,6 +96,24 @@ def build_performance_delta(db_path, video_id, current_stats, subscribers_gained
     }
 
 
+def query_subscribers_gained_since(analytics, video_id, start_date, end_date):
+    """Query only this video's subscribers gained after its recorded SEO change."""
+    try:
+        response = analytics.reports().query(
+            ids="channel==MINE",
+            startDate=start_date,
+            endDate=end_date,
+            metrics="subscribersGained",
+            filters="video==" + video_id,
+            maxResults=1
+        ).execute()
+        rows = response.get("rows", [])
+        return {"available": True, "subscribers_gained": _int_or_none(rows[0][0]) if rows else 0}
+    except Exception as exc:
+        return {"available": False, "subscribers_gained": None,
+                "reason": f"{type(exc).__name__}: {exc}"[:500]}
+
+
 def _int_or_none(value):
     try:
         return int(value) if value is not None else None
