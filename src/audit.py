@@ -1,7 +1,8 @@
 """Read-only channel inventory, analytics and thumbnail reach collection."""
 from __future__ import annotations
 import csv, io
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 
 def _paged_request(service, method: str, collection_key="items", **kwargs):
@@ -57,11 +58,16 @@ def _query_all_rows(analytics, start, end, dimensions, metrics, sort="-views", p
     return rows_out, pages
 
 
-def _analytics_by_video(analytics, start, end):
+def _analytics_by_video(analytics, start, end, video_ids=None):
     metrics = ("views,estimatedMinutesWatched,averageViewDuration,averageViewPercentage,"
                "likes,comments,shares,subscribersGained,subscribersLost")
     try:
+        if video_ids is not None and not video_ids:
+            return {"available":True,"by_video":{},"pages_fetched":0,"videos_with_analytics":0}
         rows, pages = _query_all_rows(analytics, start, end, "video", metrics)
+        if video_ids is not None:
+            allowed = set(video_ids)
+            rows = [row for row in rows if row.get("video") in allowed]
         data = {}
         for row in rows:
             vid = row.pop("video", None)
@@ -233,7 +239,8 @@ def _incremental_inventory(youtube, playlist_id, cached_by_id, max_videos):
 
 def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=False,
                       daily_analytics_days=30, reporting=None, reporting_session=None,
-                      inventory_cache_path=None):
+                      inventory_cache_path=None, manual_from_date=None,
+                      manual_to_date=None, timezone="Asia/Kolkata"):
     channel_response = youtube.channels().list(
         part="snippet,contentDetails,statistics", mine=True).execute()
     channels = channel_response.get("items", [])
