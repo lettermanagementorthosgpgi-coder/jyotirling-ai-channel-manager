@@ -172,7 +172,7 @@ def find_primary_scripture_source(video: dict, source_dir="scripture_sources/pdf
                 for marker_index, (_, page_text) in enumerate(all_pages):
                     marker_lines = [line.strip() for line in page_text.splitlines() if line.strip()]
                     if (marker_lines and marker_lines[0].startswith("।। ॐ नमः")
-                            and re.search(r"सं[^\\s]{0,3}हता", " ".join(marker_lines[:3]))):
+                            and re.search(r"सं[^\s]{0,3}हता", " ".join(marker_lines[:3]))):
                         section_markers.append(marker_index)
 
                 scoped_headings = list(exact_heading_pages)
