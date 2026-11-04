@@ -5,6 +5,7 @@ import json
 import re
 import sqlite3
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
 
 from .ai_providers import available_providers, generate, generate_thumbnail_background
 from .thumbnail_composer import compose_thumbnail
@@ -100,6 +101,9 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
         db.execute("""CREATE TABLE IF NOT EXISTS preparations_v2 (
             video_id TEXT PRIMARY KEY, stages_json TEXT NOT NULL DEFAULT '{}',
             updated_at TEXT DEFAULT CURRENT_TIMESTAMP)""")
+        db.execute("""CREATE TABLE IF NOT EXISTS source_retry (
+            video_id TEXT PRIMARY KEY, first_seen_at TEXT NOT NULL,
+            last_attempt_at TEXT NOT NULL, fallback_allowed_at TEXT NOT NULL)""")
 
         for item in queue.get("items", []):
             vid = item.get("video_id")
@@ -110,10 +114,47 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
             row = db.execute("SELECT stages_json FROM preparations_v2 WHERE video_id=?", (vid,)).fetchone()
             stages = json.loads(row[0]) if row else {}
             if vid in force_reprocess_video_ids:
-                # Discard stale metadata-only drafts so every AI stage receives the current transcript.
+                # Discard stale drafts so every AI stage receives the current source material.
                 stages = {}
                 db.execute("DELETE FROM preparations_v2 WHERE video_id=?", (vid,))
                 db.commit()
+
+            source_basis = "transcript"
+            if transcript:
+                db.execute("DELETE FROM source_retry WHERE video_id=?", (vid,))
+            else:
+                now = datetime.now(timezone.utc)
+                retry_row = db.execute(
+                    "SELECT first_seen_at, fallback_allowed_at FROM source_retry WHERE video_id=?",
+                    (vid,)).fetchone()
+                if retry_row:
+                    first_seen_at, fallback_allowed_at = retry_row
+                    fallback_time = datetime.fromisoformat(fallback_allowed_at)
+                else:
+                    first_seen_at = now.isoformat()
+                    fallback_time = now + timedelta(hours=48)
+                    fallback_allowed_at = fallback_time.isoformat()
+                db.execute("""INSERT INTO source_retry(
+                    video_id, first_seen_at, last_attempt_at, fallback_allowed_at)
+                    VALUES(?,?,?,?) ON CONFLICT(video_id) DO UPDATE SET
+                    last_attempt_at=excluded.last_attempt_at""",
+                    (vid, first_seen_at, now.isoformat(), fallback_allowed_at))
+                db.commit()
+                if now < fallback_time:
+                    remaining = max(0, int((fallback_time - now).total_seconds() // 3600))
+                    item["ai_preparation"] = {
+                        "status": "waiting_for_transcript_or_primary_scripture_source",
+                        "transcript_available": False,
+                        "first_seen_at": first_seen_at,
+                        "fallback_allowed_at": fallback_allowed_at,
+                        "hours_until_description_fallback": remaining,
+                        "primary_scripture_source_status": "not_yet_connected",
+                        "note": "Description-based AI drafting is intentionally held until the full 48-hour retry window has elapsed."
+                    }
+                    result_items.append(item)
+                    continue
+                source_basis = "description_fallback_after_48_hours"
+
             errors = []
             if not providers:
                 item["ai_preparation"] = {
@@ -237,7 +278,7 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                 "stages": stages,
                 "provider_attempts": errors,
                 "transcript_available": bool(transcript),
-                "grounding": "transcript_and_metadata" if transcript else "metadata_only_provisional",
+                "grounding": "transcript_and_metadata" if transcript else source_basis,
                 "thumbnail": thumbnail_result
             }
             result_items.append(item)
