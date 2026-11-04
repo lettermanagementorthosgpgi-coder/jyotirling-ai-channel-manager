@@ -151,23 +151,112 @@ def _daily_thumbnail_reach(reporting, session, start_date):
                 "reports_read":0,"job_created":False}
 
 
+def _read_inventory_cache(cache_path, channel_id, playlist_id):
+    """Load the last complete inventory snapshot, if it belongs to this channel."""
+    if not cache_path:
+        return {}
+    from pathlib import Path
+    import json
+    path = Path(cache_path)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if (payload.get("schema_version") != 1 or
+                payload.get("channel_id") != channel_id or
+                payload.get("uploads_playlist_id") != playlist_id):
+            return {}
+        return payload.get("videos_by_id", {})
+    except (OSError, ValueError, TypeError):
+        return {}
+
+
+def _write_inventory_cache(cache_path, channel_id, playlist_id, videos_by_id):
+    """Persist the inventory so hourly runs do not rescan all historical uploads."""
+    if not cache_path:
+        return
+    from pathlib import Path
+    import json, os
+    path = Path(cache_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix(path.suffix + ".tmp")
+    temp.write_text(json.dumps({
+        "schema_version": 1,
+        "channel_id": channel_id,
+        "uploads_playlist_id": playlist_id,
+        "videos_by_id": videos_by_id
+    }, ensure_ascii=False), encoding="utf-8")
+    os.replace(temp, path)
+
+
+def _fetch_video_details(youtube, video_ids):
+    details = []
+    for offset in range(0, len(video_ids), 50):
+        result = youtube.videos().list(part="snippet,contentDetails,statistics,status",
+            id=",".join(video_ids[offset:offset+50]), maxResults=50).execute()
+        details.extend(result.get("items", []))
+    return details
+
+
+def _incremental_inventory(youtube, playlist_id, cached_by_id, max_videos):
+    """Scan newest-first until the first known upload; fetch details only for new IDs."""
+    new_playlist_items, new_ids, seen = [], [], set()
+    token, scanned, found_known = None, 0, False
+    while scanned < max_videos:
+        page = youtube.playlistItems().list(part="snippet,contentDetails",
+            playlistId=playlist_id, maxResults=50, pageToken=token).execute()
+        items = page.get("items", [])
+        scanned += len(items)
+        for item in items:
+            video_id = item.get("contentDetails", {}).get("videoId")
+            if not video_id:
+                continue
+            if video_id in cached_by_id:
+                found_known = True
+                break
+            if video_id not in seen:
+                seen.add(video_id)
+                new_ids.append(video_id)
+                new_playlist_items.append(item)
+        if found_known or not page.get("nextPageToken") or not items:
+            break
+        token = page.get("nextPageToken")
+
+    # If a cache exists but no known item was encountered, continue scanning the
+    # complete playlist up to the configured cap; this also repairs stale caches.
+    ids, duplicate_entries = _unique_playlist_video_ids(new_playlist_items)
+    new_details = _fetch_video_details(youtube, ids)
+    updated = dict(cached_by_id)
+    for item in new_details:
+        if item.get("id"):
+            updated[item["id"]] = item
+    return updated, scanned, duplicate_entries, len(ids)
+
+
 def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=False,
-                      daily_analytics_days=30, reporting=None, reporting_session=None):
+                      daily_analytics_days=30, reporting=None, reporting_session=None,
+                      inventory_cache_path=None):
     channel_response = youtube.channels().list(
         part="snippet,contentDetails,statistics", mine=True).execute()
     channels = channel_response.get("items", [])
     if not channels: raise RuntimeError("No YouTube channel was returned for the authorized account.")
     channel = channels[0]
     playlist = channel["contentDetails"]["relatedPlaylists"]["uploads"]
-    playlist_items = _paged_request(youtube.playlistItems(), "list",
-        part="snippet,contentDetails", playlistId=playlist, maxResults=50)[:max_videos]
-    ids, duplicate_entries = _unique_playlist_video_ids(playlist_items)
-    details = []
-    for offset in range(0, len(ids), 50):
-        result = youtube.videos().list(part="snippet,contentDetails,statistics,status",
-            id=",".join(ids[offset:offset+50]), maxResults=50).execute()
-        details.extend(result.get("items", []))
-    details, duplicate_resources = _unique_video_details(details)
+    channel_id = channel.get("id", "")
+    cached_by_id = _read_inventory_cache(inventory_cache_path, channel_id, playlist)
+
+    if cached_by_id:
+        videos_by_id, playlist_scanned, duplicate_entries, newly_found = _incremental_inventory(
+            youtube, playlist, cached_by_id, max_videos)
+    else:
+        playlist_items = _paged_request(youtube.playlistItems(), "list",
+            part="snippet,contentDetails", playlistId=playlist, maxResults=50)[:max_videos]
+        ids, duplicate_entries = _unique_playlist_video_ids(playlist_items)
+        initial_details = _fetch_video_details(youtube, ids)
+        videos_by_id = {v["id"]: v for v in initial_details if v.get("id")}
+        playlist_scanned, newly_found = len(playlist_items), len(ids)
+
+    _write_inventory_cache(inventory_cache_path, channel_id, playlist, videos_by_id)
+    details, duplicate_resources = _unique_video_details(list(videos_by_id.values()))
+    ids = list(videos_by_id.keys())
 
     today = date.today()
     start = today - timedelta(days=90)
@@ -216,7 +305,10 @@ def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=Fals
         "thumbnail_reach_reports_read":reach["reports_read"],
         "thumbnail_reach_job_created":reach["job_created"],
         "thumbnail_reach_report_type_id":reach.get("report_type_id"),
-        "playlist_items_scanned":len(playlist_items),"unique_video_ids":len(ids),
+        "playlist_items_scanned":playlist_scanned,"unique_video_ids":len(ids),
+        "new_video_ids_discovered_this_run":newly_found,
+        "inventory_cache_used":bool(cached_by_id),
+        "inventory_cache_video_count":len(videos_by_id),
         "inventory_video_count":len(videos),
         "duplicate_uploads_playlist_entry_count":len(duplicate_entries),
         "duplicate_uploads_playlist_entries":duplicate_entries,
