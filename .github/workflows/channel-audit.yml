@@ -39,6 +39,26 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Check out private scripture source repository
+        uses: actions/checkout@v4
+        with:
+          repository: lettermanagementorthosgpgi-coder/jyotirling-scripture-storage
+          ref: main
+          token: ${{ secrets.SCRIPTURE_STORAGE_TOKEN }}
+          path: .private-scripture-source
+          persist-credentials: false
+
+      - name: Provision scripture PDFs for this runner only
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p scripture_sources/pdfs
+          cp ".private-scripture-source/468980196-शिव-पुराण-shiv-puran-complete-pdf.pdf" scripture_sources/pdfs/shiv_puran.pdf
+          cp ".private-scripture-source/bhagvat_gita_as_it_is_-_hindi.pdf" scripture_sources/pdfs/bhagavad_gita_yatharoop.pdf
+          test -s scripture_sources/pdfs/shiv_puran.pdf
+          test -s scripture_sources/pdfs/bhagavad_gita_yatharoop.pdf
+          echo "Both private scripture PDFs are provisioned for this workflow run."
+
       - name: Restore AI preparation state
         uses: actions/cache@v4
         with:
