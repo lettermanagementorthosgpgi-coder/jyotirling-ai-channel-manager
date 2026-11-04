@@ -23,6 +23,9 @@ STOP_WORDS = {
 
 
 def _programme(video: dict) -> str | None:
+    explicit = video.get("programme")
+    if explicit in ("shiv_puran", "bhagavad_gita"):
+        return explicit
     text = " ".join(str(video.get(k) or "") for k in
                     ("source_title", "title", "source_description", "description")).lower()
     if any(x in text for x in ("bhagavad", "गीता", "गीताजी", "gita")):
@@ -83,23 +86,45 @@ def find_primary_scripture_source(video: dict, source_dir="scripture_sources/pdf
     description = str(video.get("source_description") or video.get("description") or "")
     query_text = (title + " " + description[:1200]).strip()
     keywords = _keywords(query_text)
-    chapter = _chapter_number(query_text)
+    chapter = video.get("chapter_number") or _chapter_number(query_text)
+    section_name = str(video.get("khanda_name") or
+                       (video.get("programme_feed") or {}).get("section_name") or "")
     pages = []
 
     try:
         with fitz.open(pdf_path) as document:
-            for index, page in enumerate(document):
-                text = page.get_text("text") or ""
+            all_pages = [(index + 1, page.get_text("text") or "")
+                         for index, page in enumerate(document)]
+            exact_heading_pages = []
+            for index, (page_number, text) in enumerate(all_pages):
                 if not text.strip():
                     continue
                 score = sum(2 for word in keywords if word in text.lower())
-                if chapter and programme == "bhagavad_gita":
-                    chapter_word = DEVANAGARI_CHAPTERS.get(chapter, "")
-                    if (f"अध्याय {chapter}" in text or
-                            (chapter_word and f"अध्याय {chapter_word}" in text)):
-                        score += 12
+                if chapter:
+                    chapter_word = DEVANAGARI_CHAPTERS.get(int(chapter), "")
+                    chapter_patterns = (
+                        rf"(?:अध्याय|अध्‍याय|chapter)\s*[-:#]?\s*{int(chapter)}(?:\D|$)",
+                        rf"(?:अध्याय|अध्‍याय)\s*[-:#]?\s*{chapter_word}(?:\s|$)" if chapter_word else r"(?!)",
+                    )
+                    if any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in chapter_patterns):
+                        score += 25
+                        exact_heading_pages.append(index)
+                if section_name and section_name in text:
+                    score += 30
                 if score:
-                    pages.append((score, index + 1, text))
+                    pages.append((score, page_number, text))
+
+            # A chapter heading may appear only on its opening page. Include the
+            # immediately following pages as source context, but only when an
+            # exact heading for the requested chapter was found.
+            if exact_heading_pages:
+                present = {page_no for _, page_no, _ in pages}
+                for heading_index in exact_heading_pages:
+                    for adjacent in range(heading_index, min(heading_index + 4, len(all_pages))):
+                        page_no, page_text = all_pages[adjacent]
+                        if page_text.strip() and page_no not in present:
+                            pages.append((18, page_no, page_text))
+                            present.add(page_no)
     except Exception as exc:
         return {"status": "read_error", "source_type": "primary_scripture_reference",
                 "error": f"{type(exc).__name__}: {exc}"[:400]}
@@ -127,6 +152,7 @@ def find_primary_scripture_source(video: dict, source_dir="scripture_sources/pdf
         "programme": programme,
         "source_file": pdf_path.name,
         "chapter_number": chapter,
+        "section_name": section_name or None,
         "evidence_type": "Hindi translation / explanatory text; distinguish Sanskrit verses from translator/editor commentary",
         "pages": excerpts,
         "note": "Cite PDF page numbers. Do not present translator/editor commentary as a verbatim statement of the deity or as an original Sanskrit verse.",
