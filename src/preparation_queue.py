@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 
 def build_new_upload_preparation_queue(videos, start_date, timezone="Asia/Kolkata",
-                                       include_video_ids=None):
+                                       include_video_ids=None, end_date=None):
     """Queue public videos on/after start_date plus explicitly selected video IDs.
 
     This prepares review records only. It never edits YouTube metadata, downloads
@@ -14,6 +14,9 @@ def build_new_upload_preparation_queue(videos, start_date, timezone="Asia/Kolkat
     """
     tz = ZoneInfo(timezone)
     cutoff = date.fromisoformat(start_date)
+    end_cutoff = date.fromisoformat(end_date) if end_date else None
+    if end_cutoff and end_cutoff < cutoff:
+        raise ValueError("end_date must be on or after start_date")
     explicit_ids = set(include_video_ids or [])
     queue = []
     for video in videos:
@@ -30,6 +33,8 @@ def build_new_upload_preparation_queue(videos, start_date, timezone="Asia/Kolkat
             continue
         explicitly_selected = video_id in explicit_ids
         if published_local.date() < cutoff and not explicitly_selected:
+            continue
+        if end_cutoff and published_local.date() > end_cutoff and not explicitly_selected:
             continue
 
         queue.append({
@@ -77,6 +82,7 @@ def build_new_upload_preparation_queue(videos, start_date, timezone="Asia/Kolkat
     queue.sort(key=lambda item: item["published_local"])
     return {
         "start_date_local": start_date,
+        "end_date_local": end_date,
         "timezone": timezone,
         "explicitly_included_video_ids": sorted(explicit_ids),
         "videos_in_queue": len(queue),
