@@ -187,17 +187,21 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
     image = Image.alpha_composite(image, overlay).convert("RGB")
     image.paste(portrait, (x_photo, y_photo))
 
-    # Hindi author identification plaque below the left-side portrait.
+    # Author name sits directly below the portrait: plain readable text, NO plaque or box.
     name_draw = ImageDraw.Draw(image)
     name = "महंत राजेश कुमार तिवारी ‘रंजन’"
-    name_font = _font(19)
+    name_font = _font(18)
     name_lines = _wrap_text(name_draw, name, name_font, 270, max_lines=2)
-    _ornamental_plaque(name_draw, (20, 540, 302, 615), fill=(7, 19, 39, 245), width=2)
-    name_y = 565 if len(name_lines) == 1 else 555
+    name_y = 548 if len(name_lines) == 1 else 541
     for line in name_lines:
-        _centered(name_draw, (161, name_y), line, name_font, (255, 248, 226, 255),
-                  stroke_width=1, stroke_fill=(0, 0, 0, 255))
-        name_y += 27
+        # A restrained local shadow keeps the lettering legible without adding a panel.
+        name_draw.text((161 + 2, name_y + 3), line, font=name_font,
+                       fill=(0, 0, 0, 190), anchor="mm",
+                       stroke_width=3, stroke_fill=(0, 0, 0, 150))
+        _centered(name_draw, (161, name_y), line, name_font,
+                  (255, 248, 226, 255), stroke_width=1,
+                  stroke_fill=(24, 15, 8, 255))
+        name_y += 25
 
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -208,7 +212,7 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
         "author_photo_source": "assets/author_photo.jpeg.b64",
         "author_photo_position": "left",
         "author_photo_unchanged": True,
-        "master_template": "fixed_hindi_scripture_branding_v2",
+        "master_template": "fixed_hindi_scripture_branding_v3_no_author_plaque",
         "programme_template": "fixed_hindi_scripture_branding_v2",
         "dimensions": "1280x720",
         "channel_header": "ज्योतिर्लिंग शिवमठ | बरौली, लखनऊ",
