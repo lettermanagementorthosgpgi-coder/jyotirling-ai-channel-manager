@@ -117,6 +117,9 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
     programme = video.get("programme")
     programme_label = "BHAGVADGITA" if programme == "bhagavad_gita" else "SHIV MAHA PURAN"
     chapter_text = _extract_chapter_text(video, final_package)
+    section_name = video.get("khanda_name")
+    if section_name and section_name not in chapter_text:
+        chapter_text = f"{section_name} • {chapter_text}"
     headline = _extract_headline(final_package, chapter_text)
 
     # Clear, exact channel header.
@@ -160,6 +163,11 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
     draw.rounded_rectangle((x-p, y_photo-p, x+portrait.width+p, y_photo+portrait.height+p),
                            radius=18, fill=(245, 205, 105, 255),
                            outline=(255, 239, 190, 255), width=3)
+
+    # A dark footer band masks any stray pseudo-lettering produced by image models
+    # and keeps the lower edge visually clean across all programmes.
+    draw.rectangle((0, 620, 1280, 720), fill=(5, 12, 27, 225))
+    draw.line((0, 620, 1280, 620), fill=(231, 184, 82, 255), width=2)
 
     # Merge the graphic elements, then paste the unaltered portrait pixels.
     image = Image.alpha_composite(image, overlay).convert("RGB")
