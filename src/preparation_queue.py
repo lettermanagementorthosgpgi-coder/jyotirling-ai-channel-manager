@@ -40,10 +40,12 @@ def build_new_upload_preparation_queue(videos, start_date, timezone="Asia/Kolkat
     for video in videos:
         video_id = video.get("video_id")
         published_at = video.get("published_at")
-        if not published_at:
+        # YouTube may publish a livestream after it ends. Programme date is its actual start date.
+        date_source = video.get("stream_started_at") or published_at
+        if not date_source:
             continue
         try:
-            published = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
+            published = datetime.fromisoformat(date_source.replace("Z", "+00:00"))
             if published.tzinfo is None:
                 published = published.replace(tzinfo=tz)
             published_local = published.astimezone(tz)
@@ -68,6 +70,9 @@ def build_new_upload_preparation_queue(videos, start_date, timezone="Asia/Kolkat
             "url": video.get("url"),
             "published_at": published_at,
             "published_local": published_local.isoformat(),
+            "date_basis": "actual_live_start_time" if video.get("stream_started_at") else "published_at",
+            "stream_started_at": video.get("stream_started_at"),
+            "stream_ended_at": video.get("stream_ended_at"),
             "included_by_explicit_id": explicitly_selected,
             "source_title": video.get("title"),
             "source_description": video.get("description"),

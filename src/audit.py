@@ -194,7 +194,7 @@ def _write_inventory_cache(cache_path, channel_id, playlist_id, videos_by_id):
 def _fetch_video_details(youtube, video_ids):
     details = []
     for offset in range(0, len(video_ids), 50):
-        result = youtube.videos().list(part="snippet,contentDetails,statistics,status",
+        result = youtube.videos().list(part="snippet,contentDetails,statistics,status,liveStreamingDetails",
             id=",".join(video_ids[offset:offset+50]), maxResults=50).execute()
         details.extend(result.get("items", []))
     return details
@@ -298,6 +298,10 @@ def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=Fals
         thumbs = sn.get("thumbnails", {})
         videos.append({"video_id":vid,"title":sn.get("title"),
             "description":sn.get("description"),"published_at":sn.get("publishedAt"),
+            "stream_started_at":video.get("liveStreamingDetails", {}).get("actualStartTime"),
+            "stream_ended_at":video.get("liveStreamingDetails", {}).get("actualEndTime"),
+            "scheduled_start_time":video.get("liveStreamingDetails", {}).get("scheduledStartTime"),
+            "live_broadcast_content":sn.get("liveBroadcastContent"),
             "privacy_status":privacy,"duration":content.get("duration"),
             "tags":sn.get("tags",[]),"category_id":sn.get("categoryId"),
             "default_language":sn.get("defaultLanguage"),
@@ -324,7 +328,11 @@ def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=Fals
             "description": sn.get("description"),
             "tags": sn.get("tags", []),
             "thumbnail_urls": {k: v.get("url") for k, v in thumbs.items() if v.get("url")},
-            "lifetime_statistics": {k: stats.get(k) for k in ("viewCount", "likeCount", "commentCount")}
+            "lifetime_statistics": {k: stats.get(k) for k in ("viewCount", "likeCount", "commentCount")},
+            "stream_started_at": fresh.get("liveStreamingDetails", {}).get("actualStartTime"),
+            "stream_ended_at": fresh.get("liveStreamingDetails", {}).get("actualEndTime"),
+            "scheduled_start_time": fresh.get("liveStreamingDetails", {}).get("scheduledStartTime"),
+            "live_broadcast_content": sn.get("liveBroadcastContent")
         })
     analytics_start = manual_start if manual_mode else review_date
     analytics_end = manual_end if manual_mode else today_local

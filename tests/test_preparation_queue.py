@@ -13,6 +13,18 @@ class PreparationQueueTests(unittest.TestCase):
         self.assertEqual(result["items"][0]["programme"], "shiv_puran")
         self.assertEqual(result["items"][0]["chapter_number"], 20)
 
+    def test_live_video_uses_actual_start_date_not_later_publish_date(self):
+        videos = [{
+            "video_id": "yesterday-live-gita",
+            "published_at": "2026-11-04T03:35:05Z",
+            "stream_started_at": "2026-11-03T13:45:00Z",
+            "title": "BhagvadGita Adhyay 16",
+        }]
+        result = build_new_upload_preparation_queue(
+            videos, "2026-11-04", end_date="2026-11-04", timezone="Asia/Kolkata")
+        self.assertEqual(result["videos_in_queue"], 0)
+        self.assertEqual(result["items"], [])
+
     def test_explicit_review_video_can_be_included_outside_date(self):
         videos = [{"video_id": "review", "published_at": "2026-11-03T10:00:00Z", "title": "Bhagavad Gita"}]
         result = build_new_upload_preparation_queue(videos, "2026-11-04", end_date="2026-11-04", include_video_ids=["review"], timezone="Asia/Kolkata")
