@@ -13,6 +13,14 @@ on:
         required: true
         type: boolean
         default: false
+      from_date:
+        description: "Optional inclusive start date for manual video review (YYYY-MM-DD)"
+        required: false
+        type: string
+      to_date:
+        description: "Optional inclusive end date for manual video review (YYYY-MM-DD)"
+        required: false
+        type: string
   schedule:
     - cron: "0 * * * *"
 
@@ -61,6 +69,8 @@ jobs:
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
           YT_WRITE_TEST: ${{ inputs.write_test }}
           APPLY_MONDAY_BHAJAN_THUMBNAIL: ${{ inputs.apply_monday_bhajan_thumbnail }}
+          MANUAL_FROM_DATE: ${{ inputs.from_date }}
+          MANUAL_TO_DATE: ${{ inputs.to_date }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_MODEL: gpt-6-luna
