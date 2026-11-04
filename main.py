@@ -13,13 +13,13 @@ from src.transcript_retrieval import retrieve_queue_transcripts
 from src.ai_pipeline import run_ai_preparation
 from src.seo_performance import get_seo_baseline, build_performance_delta, query_subscribers_gained_since
 from src.programme_progression import build_daily_programme_feeds
+from src.manual_programme_fallback import build_manual_programme_queue
 
 ROOT = Path(__file__).resolve().parent
 
 
 def main():
     config = json.loads((ROOT / "config.example.json").read_text(encoding="utf-8"))
-    youtube, analytics, reporting, session = build_youtube_services(ROOT)
     report_dir = ROOT / "reports"
     report_dir.mkdir(exist_ok=True)
     stamp = datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
@@ -31,6 +31,7 @@ def main():
     if manual_range and (not manual_from or not manual_to):
         raise ValueError("Manual date range requires both MANUAL_FROM_DATE and MANUAL_TO_DATE (YYYY-MM-DD).")
     try:
+        youtube, analytics, reporting, session = build_youtube_services(ROOT)
         result = run_channel_audit(youtube, analytics, reporting=reporting,
             reporting_session=session,
             max_videos=int(config["audit"]["max_videos_per_run"]),
@@ -41,30 +42,49 @@ def main():
             manual_to_date=manual_to or None,
             timezone=config.get("timezone", "Asia/Kolkata"))
     except Exception as exc:
-        # YouTube Data API quota is a temporary condition. Save a clear report
-        # and exit successfully; the hourly scheduled workflow will retry.
+        # If YouTube inventory/data cannot be obtained, prepare today's scripture
+        # programmes directly from the provisioned primary books instead.
         error_text = str(exc)
-        is_quota_error = ("quotaExceeded" in error_text or
-                          "exceeded your quota" in error_text.lower())
-        if not is_quota_error:
-            raise
-        deferred = {
-            "report_type": "youtube_quota_deferred",
-            "status": "waiting_for_youtube_api_quota",
-            "checked_at_local": datetime.now().astimezone().isoformat(),
-            "error": error_text[:1500],
+        manual_queue = build_manual_programme_queue(daily_programme_feeds)
+        manual_result = run_ai_preparation(
+            manual_queue,
+            ROOT / ".state" / "preparation.sqlite",
+            ROOT / "transcripts",
+            ROOT / "thumbnails"
+        )
+        manual_report = {
+            "report_type": "book_based_manual_fallback",
+            "status": "manual_mode_prepared" if manual_result.get("items") else "manual_mode_no_active_feeds",
+            "youtube_data_status": "unavailable",
+            "youtube_error": error_text[:1500],
+            "checked_at_local": datetime.now(ZoneInfo(config.get("timezone", "Asia/Kolkata"))).isoformat(),
             "daily_programme_feeds": daily_programme_feeds,
+            "manual_book_queue": {
+                "scope": manual_queue.get("scope"),
+                "items_count": manual_queue.get("videos_in_queue"),
+                "items": manual_result.get("items", [])
+            },
+            "ai_preparation_summary": {
+                "providers_configured": manual_result.get("providers_configured", []),
+                "items_processed_or_pending": manual_result.get("videos_processed_or_pending", 0),
+                "note": manual_result.get("note")
+            },
+            "safety": {
+                "book_based_source_required": True,
+                "youtube_metadata_changed": False,
+                "thumbnail_uploaded": False,
+                "uploads_or_publications_made": False
+            },
             "retry_policy": {
-                "enabled": True,
-                "schedule": "GitHub Actions retries automatically on the existing hourly schedule",
-                "next_action": "When YouTube Data API quota is available, rerun the channel audit, collect the video inventory/transcripts, and continue AI preparation and thumbnail generation.",
-                "no_youtube_changes_made": True
+                "youtube_api_retry_enabled": True,
+                "note": "The existing scheduled workflow will retry YouTube data retrieval. Manual book preparation is independent and does not advance the chapter more than once per local calendar date."
             }
         }
-        out = report_dir / f"channel_audit_{stamp}_quota_deferred.json"
-        out.write_text(json.dumps(deferred, ensure_ascii=False, indent=2), encoding="utf-8")
-        print("YOUTUBE API QUOTA UNAVAILABLE: preparation deferred; hourly retry remains enabled.")
-        print(f"Quota deferral report: {out}")
+        out = report_dir / f"channel_audit_{stamp}_manual_fallback.json"
+        out.write_text(json.dumps(manual_report, ensure_ascii=False, indent=2), encoding="utf-8")
+        print("YOUTUBE DATA UNAVAILABLE: switched to book-based MANUAL MODE.")
+        print(f"Manual fallback report: {out}")
+        print("No YouTube metadata, thumbnail upload, or publication was performed.")
         return
 
     # Explicit opt-in only: generate and upload a thumbnail to the single approved Monday bhajan video.
