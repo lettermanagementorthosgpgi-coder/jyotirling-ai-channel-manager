@@ -20,13 +20,21 @@ def main():
     report_dir = ROOT / "reports"
     report_dir.mkdir(exist_ok=True)
     stamp = datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
+    manual_from = os.getenv("MANUAL_FROM_DATE", "").strip()
+    manual_to = os.getenv("MANUAL_TO_DATE", "").strip()
+    manual_range = bool(manual_from or manual_to)
+    if manual_range and (not manual_from or not manual_to):
+        raise ValueError("Manual date range requires both MANUAL_FROM_DATE and MANUAL_TO_DATE (YYYY-MM-DD).")
     try:
         result = run_channel_audit(youtube, analytics, reporting=reporting,
             reporting_session=session,
             max_videos=int(config["audit"]["max_videos_per_run"]),
             include_unlisted=bool(config["audit"]["include_unlisted"]),
             daily_analytics_days=int(config["audit"].get("daily_analytics_days",30)),
-            inventory_cache_path=ROOT / ".state" / "channel_inventory.json")
+            inventory_cache_path=ROOT / ".state" / "channel_inventory.json",
+            manual_from_date=manual_from or None,
+            manual_to_date=manual_to or None,
+            timezone=config.get("timezone", "Asia/Kolkata"))
     except Exception as exc:
         # YouTube Data API quota is a temporary condition. Save a clear report
         # and exit successfully; the hourly scheduled workflow will retry.
@@ -127,14 +135,12 @@ def main():
         }
 
     prep = config.get("new_upload_preparation", {})
-    manual_from = os.getenv("MANUAL_FROM_DATE", "").strip()
-    manual_to = os.getenv("MANUAL_TO_DATE", "").strip()
-    manual_range = bool(manual_from or manual_to)
-    if manual_range and (not manual_from or not manual_to):
-        raise ValueError("Manual date range requires both MANUAL_FROM_DATE and MANUAL_TO_DATE (YYYY-MM-DD).")
+    today_local = datetime.now().astimezone().date()
+    from datetime import timedelta
+    default_start = (today_local - timedelta(days=90)).isoformat()
     queue = build_new_upload_preparation_queue(
         result["videos"],
-        start_date=manual_from or prep.get("start_date_local", "2026-11-02"),
+        start_date=manual_from or default_start,
         end_date=manual_to or None,
         timezone=config.get("timezone", "Asia/Kolkata"),
         include_video_ids=[] if manual_range else prep.get("include_video_ids", []))
