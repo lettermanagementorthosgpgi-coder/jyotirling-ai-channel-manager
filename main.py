@@ -50,6 +50,11 @@ def main():
         # programmes directly from the provisioned primary books instead.
         error_text = str(exc)
         manual_queue = build_manual_programme_queue(daily_programme_feeds)
+        # Always regenerate the artwork during a manual test/run so an older
+        # cached background cannot mask a corrected chapter-specific prompt.
+        for manual_item in manual_queue.get("items", []):
+            background = ROOT / "thumbnails" / f"{manual_item['video_id']}_background.png"
+            background.unlink(missing_ok=True)
         manual_result = run_ai_preparation(
             manual_queue,
             ROOT / ".state" / "preparation.sqlite",
