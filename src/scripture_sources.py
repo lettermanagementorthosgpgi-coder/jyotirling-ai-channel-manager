@@ -102,9 +102,12 @@ def find_primary_scripture_source(video: dict, source_dir="scripture_sources/pdf
                 score = sum(2 for word in keywords if word in text.lower())
                 if chapter:
                     chapter_word = DEVANAGARI_CHAPTERS.get(int(chapter), "")
+                    chapter_digits = str(int(chapter)).translate(str.maketrans("0123456789", "०१२३४५६७८९"))
                     chapter_patterns = (
                         rf"(?:अध्याय|अध्‍याय|chapter)\s*[-:#]?\s*{int(chapter)}(?:\D|$)",
+                        rf"(?:अध्याय|अध्‍याय)\s*[-:#]?\s*{chapter_digits}(?:\D|$)",
                         rf"(?:अध्याय|अध्‍याय)\s*[-:#]?\s*{chapter_word}(?:\s|$)" if chapter_word else r"(?!)",
+                        rf"{chapter_word}(?:ो)?ऽ?अध्याय(?:ः)?" if chapter_word else r"(?!)",
                     )
                     if any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in chapter_patterns):
                         score += 25
