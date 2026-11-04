@@ -264,7 +264,9 @@ def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=Fals
     ids = list(videos_by_id.keys())
 
     tz = ZoneInfo(timezone)
-    today_local = datetime.now(tz).date()
+    now_local = datetime.now(tz)
+    today_local = now_local.date()
+    rolling_48h_cutoff = now_local - timedelta(hours=48)
     review_date = today_local - timedelta(days=90)
     manual_mode = bool(manual_from_date or manual_to_date)
     if manual_mode and (not manual_from_date or not manual_to_date):
@@ -284,13 +286,14 @@ def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=Fals
         if not published_raw:
             continue
         try:
-            published_local = datetime.fromisoformat(published_raw.replace("Z", "+00:00")).astimezone(tz).date()
+            published_local_dt = datetime.fromisoformat(published_raw.replace("Z", "+00:00")).astimezone(tz)
+            published_local = published_local_dt.date()
         except (TypeError, ValueError):
             continue
         if manual_mode:
             if not (manual_start <= published_local <= manual_end):
                 continue
-        elif published_local not in {today_local, today_local - timedelta(days=1), review_date}:
+        elif not (published_local_dt >= rolling_48h_cutoff or published_local == review_date):
             continue
         thumbs = sn.get("thumbnails", {})
         videos.append({"video_id":vid,"title":sn.get("title"),
@@ -342,8 +345,8 @@ def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=Fals
         "scan_scope":{"mode":"manual_date_range" if manual_mode else "daily_targeted",
             "manual_from_date":manual_from_date,"manual_to_date":manual_to_date,
             "rolling_review_date":None if manual_mode else review_date.isoformat(),
-            "automatic_video_dates":None if manual_mode else [
-                (today_local-timedelta(days=1)).isoformat(),today_local.isoformat(),review_date.isoformat()],
+            "rolling_48_hours_since":None if manual_mode else rolling_48h_cutoff.isoformat(),
+            "rolling_review_date":None if manual_mode else review_date.isoformat(),
             "full_channel_video_details_refetched":False},
         "channel":{"id":channel.get("id"),"title":channel.get("snippet",{}).get("title"),
             "custom_url":channel.get("snippet",{}).get("customUrl"),
