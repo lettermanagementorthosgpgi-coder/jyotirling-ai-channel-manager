@@ -127,11 +127,17 @@ def main():
         }
 
     prep = config.get("new_upload_preparation", {})
+    manual_from = os.getenv("MANUAL_FROM_DATE", "").strip()
+    manual_to = os.getenv("MANUAL_TO_DATE", "").strip()
+    manual_range = bool(manual_from or manual_to)
+    if manual_range and (not manual_from or not manual_to):
+        raise ValueError("Manual date range requires both MANUAL_FROM_DATE and MANUAL_TO_DATE (YYYY-MM-DD).")
     queue = build_new_upload_preparation_queue(
         result["videos"],
-        start_date=prep.get("start_date_local", "2026-11-02"),
+        start_date=manual_from or prep.get("start_date_local", "2026-11-02"),
+        end_date=manual_to or None,
         timezone=config.get("timezone", "Asia/Kolkata"),
-        include_video_ids=prep.get("include_video_ids", []))
+        include_video_ids=[] if manual_range else prep.get("include_video_ids", []))
     transcript_result = retrieve_queue_transcripts(youtube, queue.get("items", []), ROOT / "transcripts")
     for item in queue.get("items", []):
         item["transcript_retrieval"] = transcript_result["results"].get(item.get("video_id"), {})
@@ -140,6 +146,8 @@ def main():
                                    force_reprocess_video_ids=prep.get("force_reprocess_video_ids", []))
     result["new_upload_preparation"] = {
         "start_date_local": queue["start_date_local"],
+        "end_date_local": queue.get("end_date_local"),
+        "scope": "manual_inclusive_date_range" if manual_range else "new_uploads_and_selected_reviews",
         "timezone": queue["timezone"],
         "explicitly_included_video_ids": queue["explicitly_included_video_ids"],
         "videos_in_queue": queue["videos_in_queue"],
