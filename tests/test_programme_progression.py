@@ -42,7 +42,7 @@ def test_feed_advances_once_per_calendar_day_and_keeps_books_separate():
 
 
 def test_shiv_puran_moves_to_next_section_using_contents_sequence():
-    feeds = build_daily_programme_feeds(sample_config(), date(2027, 1, 28))
+    feeds = build_daily_programme_feeds(sample_config(), date(2026, 12, 29))
     assert feeds["morning"]["section_name"] == "शतरुद्र संहिता"
     assert feeds["morning"]["chapter_number"] == 1
 
