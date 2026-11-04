@@ -15,9 +15,9 @@ ROLES = [
     ("AI-1_data_analysis",
      "Evidence priority: use the full transcript first when supplied. If no transcript is supplied, inspect primary_scripture_source. When its status is matched, use only its page-numbered excerpts as primary-scripture evidence, clearly label the result scripture-reference-based (Hindi translation/explanatory text), and cite the PDF page numbers. Distinguish original Sanskrit verses from Hindi translation and editor/commentary; never attribute commentary as verbatim divine speech. Use title/description only for identifying the chapter/topic, not as a substitute for scripture evidence. If no transcript and no matched scripture source, do not draft until the 48-hour wait has elapsed; only then use title/description and label the result description-based. Never invent metrics or spoken content."),
     ("AI-2_youtube_seo_and_thumbnail_brief",
-     "Use the full transcript as primary evidence when available. If absent, use a matched primary_scripture_source pack as the evidence base, cite its PDF pages, and clearly label claims as based on Hindi scripture translation/explanatory text rather than a transcript. Use the title/description only to identify the likely chapter/topic. If neither transcript nor matched scripture source is available, this stage should only run after the 48-hour wait and must be labelled description-based. Prepare YouTube SEO: 3 title options, a complete Hindi-first description accurately summarizing what is actually spoken, relevant tags, hashtags, a concise Hindi thumbnail headline, and a detailed creative visual concept. Design the thumbnail freely from the transcript when available, otherwise from the description and title; do not force a pre-existing programme template or fixed layout. Mandatory thumbnail text: place JYOTIRLING SHIVMATH BARAULI LUCKNOW at the top centre; include the host's supplied real photograph on one side unchanged; prominently include exactly one programme label, SHIV MAHA PURAN for Shiv Puran content or BHAGVADGITA for Gita content; show the chapter number/name and chapter title together. AI chooses all other wording, imagery, colours, composition and placement based on the transcript."),
+     "Use the full transcript as primary evidence when available. If absent, use a matched primary_scripture_source pack as the evidence base, cite its PDF pages, and clearly label claims as based on Hindi scripture translation/explanatory text rather than a transcript. Use the title/description only to identify the likely chapter/topic. If neither transcript nor matched scripture source is available, this stage should only run after the 48-hour wait and must be labelled description-based. Prepare YouTube SEO: 3 title options, a complete Hindi-first description accurately summarizing the source, relevant tags, hashtags, a concise Hindi thumbnail headline and a chapter-grounded visual concept. The thumbnail uses a FIXED layout: original supplied author photo always on the LEFT, unflipped and unretouched; TOP-MIDDLE ornamental designer plaque with two Hindi lines exactly 'ज्योतिर्लिंग शिवमठ' and 'बरौली, लखनऊ'; BOTTOM-MIDDLE ornamental designer plaque with exactly one Hindi book label, 'शिव महापुराण' for Shiv Puran or 'भगवद्गीता' for Bhagavad Gita; verified chapter number/name immediately ABOVE the bottom plaque; the main chapter-specific subject headline is large and directly over the background artwork, in the centre/right, with bright contrasting Hindi lettering, dark outline and localized shadow. Do not use English branding, a large dark central panel, or a full-frame dark overlay. Keep the background image bright and visible. Only the background scene, headline, chapter text and relevant book label vary; all fixed positions and branding remain unchanged."),
     ("AI-3_cross_review",
-     "Verify claims against the transcript when supplied; otherwise verify against the matched primary_scripture_source excerpts and cite their PDF pages. Distinguish Sanskrit verses, Hindi translation, and commentary; never attribute commentary to a deity as verbatim speech. If neither source exists after the 48-hour wait, verify only against title/description and label the result description-based. State clearly which evidence basis was used. Never claim a transcript was read when unavailable. Correct unsupported claims, policy risks, factual mistakes, keyword stuffing and weak packaging. Ensure the thumbnail concept grants creative freedom while retaining the mandatory channel header at top centre, unchanged real host photo on one side, correct programme label (SHIV MAHA PURAN or BHAGVADGITA), and chapter number/name together with chapter title. Return the final corrected package and a short change log.")
+     "Verify claims against the transcript when supplied; otherwise verify against the matched primary_scripture_source excerpts and cite their PDF pages. Distinguish Sanskrit verses, Hindi translation, and commentary; never attribute commentary to a deity as verbatim speech. If neither source exists after the 48-hour wait, verify only against title/description and label the result description-based. State clearly which evidence basis was used. Never claim a transcript was read when unavailable. Correct unsupported claims, policy risks, factual mistakes, keyword stuffing and weak packaging. Verify that the thumbnail follows the fixed Hindi design exactly: unchanged original author photo LEFT; top-middle two-line ornamental plaque 'ज्योतिर्लिंग शिवमठ' / 'बरौली, लखनऊ'; bottom-middle ornamental plaque with 'शिव महापुराण' or 'भगवद्गीता'; verified chapter line just above the bottom plaque; large chapter-specific Hindi subject over the bright background, centre/right, using high-contrast text with localized outline/shadow. Reject English branding, a right-side portrait, oversized dark panels, or an overall darkened background. Return the final corrected package and a short change log.")
 ]
 
 
@@ -53,14 +53,14 @@ def _prompt(role_instruction, video, previous, transcript):
         "primary_scripture_source": video.get("primary_scripture_source"),
         "previous_stage_outputs": previous,
         "thumbnail_brand_rules": [
-            "YouTube thumbnail must be 16:9 and designed freely by AI from the full transcript for maximum relevance, clarity and click appeal.",
-            "The exact channel header JYOTIRLING SHIVMATH BARAULI LUCKNOW must appear at the top centre.",
-            "Include the user's supplied real photograph on one side, unchanged; never synthesize, redraw, retouch or alter the person's face.",
-            "For Shiv Puran content, prominently show the exact programme label SHIV MAHA PURAN. For Bhagavad Gita content, prominently show BHAGVADGITA. Never use the wrong programme label.",
-            "Show the chapter number/name together with the chapter title as one clearly associated information unit.",
-            "AI has full creative freedom over all other wording, visual storytelling, deities/characters supported by the transcript, colours, typography, layout and placement.",
-            "All text must be accurate to the transcript, concise, high-contrast and readable on mobile.",
-            "Do not use a fixed bhajan, legacy master-frame or forced programme-specific layout for these scripture chapter thumbnails."
+            "FIXED 16:9 MASTER LAYOUT; do not redesign or move permanent elements.",
+            "Original supplied author photograph is always on the LEFT, same orientation, unchanged and unretouched.",
+            "TOP-MIDDLE ornamental designer plaque: line 1 exactly 'ज्योतिर्लिंग शिवमठ'; line 2 exactly 'बरौली, लखनऊ'. Both lines in Hindi.",
+            "BOTTOM-MIDDLE ornamental designer plaque: exactly 'शिव महापुराण' for Shiv Puran or 'भगवद्गीता' for Bhagavad Gita.",
+            "Place the verified chapter number and chapter title immediately ABOVE the bottom book plaque.",
+            "Place the main chapter-specific Hindi subject headline large over the background artwork in the centre/right, with bright high-contrast lettering, a dark outline and localized shadow only.",
+            "Keep the original background bright and visible; never put a large dark panel behind the headline or darken the whole image.",
+            "Only chapter-specific background artwork, headline and verified chapter text vary. All text must be accurate and mobile-readable."
         ],
         "guardrails": [
             "Never invent transcript contents, quotations, shlokas, chapter names, people or events.",
@@ -85,32 +85,35 @@ def _thumbnail_prompt(video, final_package):
     description = video.get("source_description") or video.get("description") or ""
     programme = video.get("programme")
     chapter_title = video.get("chapter_title") or ""
+    chapter_number = video.get("chapter_number") or ""
+    section = video.get("khanda_name") or video.get("programme_feed", {}).get("section_name") or ""
     if programme == "bhagavad_gita":
         scene_direction = (
-            "Create a respectful, cinematic Kurukshetra scene from the Bhagavad Gita: Lord Krishna as the divine "
-            "charioteer teaching Arjuna on the chariot, with the battlefield distant and unobtrusive. The chapter "
-            "theme is the three kinds of faith (sattvic, rajasic and tamasic); use three subtle, balanced visual "
-            "motifs for faith, food, yajna and tapasya. Do NOT depict Lord Shiva, a trident, or unrelated deities."
+            "Create a respectful, cinematic Bhagavad Gita scene specifically grounded in the supplied chapter title "
+            "and evidence brief. Krishna and Arjuna may appear only when relevant to the chapter. Do not assume "
+            "that every chapter is about faith or the same episode. No Shiva, trident or unrelated deities."
         )
     else:
         scene_direction = (
-            "Create a respectful, cinematic scene grounded in Shiv Puran Pancham Khanda chapter 5, "
-            "‘नास्तिक मत से त्रिपुर का मोहित होना’: show the three magnificent fortified cities of Tripura and "
-            "their rulers listening to a persuasive wandering teacher, with the sacred path and a distant temple "
-            "suggested symbolically. Do not substitute an unrelated Shiva-Parvati scene or invent a different episode."
+            "Create a respectful, cinematic Shiv Mahapuran scene specifically grounded in the supplied khanda, "
+            "chapter title and evidence brief. Depict the exact episode or figures supported by that chapter; "
+            "do not reuse a generic Shiva-Parvati scene when the chapter describes a different event."
         )
     return (
-        "Create only original devotional background artwork for a finished 16:9 YouTube thumbnail. "
+        "Create ONLY original devotional background artwork for a finished 16:9 YouTube thumbnail. "
         + scene_direction +
-        " No words, no letters, no numbers, no logos, no watermarks, no banners, no captions. "
-        "Do not depict the channel host or any portrait. Keep the RIGHTMOST 28 percent clean, dark and visually "
-        "quiet for the supplied real host photograph to be composited separately. Keep the LEFT and CENTRE "
-        "visually strong but leave a calm darker area for large Hindi title typography. "
-        "Use the following AI-reviewed creative brief as guidance, while keeping the specific scripture episode "
-        "above as the controlling subject. Video title: " + title +
-        ". Chapter title: " + chapter_title +
+        " Absolutely no words, letters, numbers, logos, watermarks, banners, labels or captions. "
+        "Do not depict the channel host or any portrait; the original host photo will be composited separately "
+        "on the LEFT. Keep the LEFT 22 percent relatively calm for that portrait, but do not make it a dark blank "
+        "strip. Keep the CENTRE and RIGHT visually rich and chapter-specific, with clear visual space for large "
+        "Hindi headline lettering to be composited over the artwork. Keep the TOP-MIDDLE and BOTTOM-MIDDLE "
+        "reasonably uncluttered for small ornamental branding plaques. Do not darken the entire scene; use vivid, "
+        "natural devotional lighting and a bright, detailed background. No typography panels are to be generated. "
+        "Chapter/programme context: " + str(programme) + "; " + str(section) + "; chapter " +
+        str(chapter_number) + " — " + chapter_title +
+        ". Video title: " + title +
         ". Source description: " + description[:1800] +
-        ". AI SEO and visual brief: " + final_package[:6500]
+        ". AI-reviewed scripture-grounded visual brief: " + final_package[:6500]
     )
 
 
