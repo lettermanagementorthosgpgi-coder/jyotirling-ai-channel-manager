@@ -54,7 +54,7 @@ def main():
         )
         manual_report = {
             "report_type": "book_based_manual_fallback",
-            "status": "manual_mode_prepared" if manual_result.get("items") else "manual_mode_no_active_feeds",
+            "status": "manual_mode_attempted" if manual_result.get("items") else "manual_mode_no_active_feeds",
             "youtube_data_status": "unavailable",
             "youtube_error": error_text[:1500],
             "checked_at_local": datetime.now(ZoneInfo(config.get("timezone", "Asia/Kolkata"))).isoformat(),
