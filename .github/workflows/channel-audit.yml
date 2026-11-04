@@ -32,6 +32,8 @@ on:
     paths:
       - .github/workflows/channel-audit.yml
       - src/scripture_sources.py
+      - src/thumbnail_composer.py
+      - src/ai_pipeline.py
   schedule:
     - cron: "0 * * * *"
 
