@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
 
 
 def _write_transcript(path: Path, text: str) -> dict:
@@ -121,26 +122,20 @@ def _diagnose_transcript_error(exc: Exception) -> tuple[str, str]:
     return "transcript_request_failed", detail
 
 
-def retrieve_video_transcript(youtube, video_id: str, output_dir="transcripts") -> dict:
-    """Try OAuth YouTube Captions API first, then public transcript-library fallback."""
+def retrieve_video_transcript(youtube, video_id: str, output_dir="transcripts",
+                              official_check_interval_hours: int = 24) -> dict:
+    """Retry public transcript discovery each run; throttle costly official caption calls."""
     output = Path(output_dir) / f"{video_id}.txt"
     metadata_path = Path(output_dir) / f"{video_id}.json"
-    attempts = []
-
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+    previous = {}
     try:
-        result = _download_owner_caption(youtube, video_id, output)
-        if result.get("status") == "available":
-            metadata_path.parent.mkdir(parents=True, exist_ok=True)
-            metadata_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
-            return result
-        attempts.append(result)
-    except Exception as exc:
-        attempts.append({
-            "method": "youtube_captions_api",
-            "status": "api_error",
-            "error": f"{type(exc).__name__}: {exc}"[:500]
-        })
+        previous = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        previous = {}
 
+    attempts = []
+    # Public transcript discovery does not consume YouTube Data API quota.
     try:
         from youtube_transcript_api import YouTubeTranscriptApi
         fetched = YouTubeTranscriptApi().fetch(
@@ -153,30 +148,70 @@ def retrieve_video_transcript(youtube, video_id: str, output_dir="transcripts") 
         )
         saved = _write_transcript(output, transcript_text)
         if saved["status"] == "available":
-            saved.update({"source": "youtube_transcript_api_public_fallback",
-                          "attempts": attempts})
-            metadata_path.parent.mkdir(parents=True, exist_ok=True)
+            saved.update({
+                "source": "youtube_transcript_api_public_first",
+                "official_api_last_checked_at": previous.get("official_api_last_checked_at"),
+                "attempts": attempts
+            })
             metadata_path.write_text(json.dumps(saved, ensure_ascii=False, indent=2), encoding="utf-8")
             return saved
     except Exception as exc:
         category, explanation = _diagnose_transcript_error(exc)
         attempts.append({
-            "method": "youtube_transcript_api_public_fallback",
+            "method": "youtube_transcript_api_public_first",
             "category": category,
             "error": f"{type(exc).__name__}: {exc}"[:400],
             "explanation": explanation
+        })
+
+    # captions.list costs 50 units and captions.download costs 200 units.
+    # Recheck the official endpoint at most once per 24 hours per video.
+    now = datetime.now(timezone.utc)
+    last_check = None
+    try:
+        if previous.get("official_api_last_checked_at"):
+            last_check = datetime.fromisoformat(
+                previous["official_api_last_checked_at"].replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        last_check = None
+    official_due = (last_check is None or
+                    now - last_check >= timedelta(hours=max(1, official_check_interval_hours)))
+    official_checked_at = previous.get("official_api_last_checked_at")
+
+    if official_due:
+        official_checked_at = now.isoformat()
+        try:
+            result = _download_owner_caption(youtube, video_id, output)
+            if result.get("status") == "available":
+                result["official_api_last_checked_at"] = official_checked_at
+                result["attempts"] = attempts
+                metadata_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+                return result
+            attempts.append(result)
+        except Exception as exc:
+            attempts.append({
+                "method": "youtube_captions_api",
+                "status": "api_error",
+                "error": f"{type(exc).__name__}: {exc}"[:500]
+            })
+    else:
+        next_check = last_check + timedelta(hours=max(1, official_check_interval_hours))
+        attempts.append({
+            "method": "youtube_captions_api",
+            "status": "deferred_to_reduce_quota",
+            "next_check_at": next_check.isoformat(),
+            "note": "Public transcript discovery is retried each run; official captions.list is rate-limited."
         })
 
     result = {
         "status": "unavailable",
         "source": None,
         "attempts": attempts,
-        "message": "No transcript could be retrieved. Confirm that a caption track exists and is accessible to the channel OAuth account."
+        "official_api_last_checked_at": official_checked_at,
+        "message": "No transcript is currently available. Public transcript discovery will retry each scheduled run; the official captions API is checked no more than once per 24 hours."
     }
-    metadata_path.parent.mkdir(parents=True, exist_ok=True)
     metadata_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     return result
-
 
 def retrieve_queue_transcripts(youtube, videos, output_dir="transcripts") -> dict:
     results = {}
