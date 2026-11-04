@@ -129,6 +129,35 @@ def find_primary_scripture_source(video: dict, source_dir="scripture_sources/pdf
         return {"status": "read_error", "source_type": "primary_scripture_reference",
                 "error": f"{type(exc).__name__}: {exc}"[:400]}
 
+    if video.get("manual_book_mode"):
+        scoped_headings = list(exact_heading_pages)
+        if section_name:
+            section_markers = [i for i, (_, page_text) in enumerate(all_pages)
+                               if section_name in page_text]
+            scoped_headings = []
+            for heading_index in exact_heading_pages:
+                previous_markers = [i for i in section_markers if i <= heading_index]
+                if not previous_markers:
+                    continue
+                section_start = previous_markers[-1]
+                next_markers = [i for i in section_markers if i > section_start]
+                section_end = next_markers[0] if next_markers else len(all_pages)
+                if section_start <= heading_index < section_end:
+                    scoped_headings.append(heading_index)
+        if not scoped_headings:
+            return {
+                "status": "requested_chapter_heading_not_found",
+                "source_type": "primary_scripture_reference",
+                "programme": programme,
+                "chapter_number": chapter,
+                "section_name": section_name or None,
+                "note": "Manual book mode requires an exact printed chapter heading in the requested book/section. No chapter topic or metadata was guessed."
+            }
+        allowed_pages = set()
+        for heading_index in scoped_headings:
+            allowed_pages.update(range(heading_index + 1, min(heading_index + 5, len(all_pages) + 1)))
+        pages = [entry for entry in pages if entry[1] in allowed_pages]
+
     pages.sort(key=lambda item: (-item[0], item[1]))
     excerpts = []
     used = 0
