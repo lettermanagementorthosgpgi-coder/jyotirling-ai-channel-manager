@@ -151,12 +151,12 @@ def find_primary_scripture_source(video: dict, source_dir="scripture_sources/pdf
                     continue
                 lines = [line.strip() for line in text.splitlines() if line.strip()]
                 heading_lines = [line for line in lines if generic_heading.match(line)]
-                # Table-of-contents pages contain many chapter headings. Ignore them;
-                # only accept a single, printed chapter heading on a content page.
+                # Record only a heading that exactly matches the requested chapter.
+                # Table-of-contents pages are excluded by requiring a single heading.
+                if (len(heading_lines) == 1 and target_heading and
+                        any(target_heading.match(line) for line in lines[:8])):
+                    exact_heading_pages.append(index)
                 if manual_mode:
-                    if len(heading_lines) == 1 and target_heading and any(
-                            target_heading.match(line) for line in lines[:8]):
-                        exact_heading_pages.append(index)
                     continue
 
                 score = sum(2 for word in keywords if word in text.lower())
@@ -265,12 +265,24 @@ def find_primary_scripture_source(video: dict, source_dir="scripture_sources/pdf
                 "source_type": "primary_scripture_reference",
                 "programme": programme, "chapter_number": chapter}
 
+    verified_heading = None
+    for page_index in exact_heading_pages:
+        page_text = all_pages[page_index][1]
+        for line in (value.strip() for value in page_text.splitlines() if value.strip()):
+            if target_heading and target_heading.match(line):
+                verified_heading = line
+                break
+        if verified_heading:
+            break
+
     return {
         "status": "matched",
         "source_type": "primary_scripture_reference",
         "programme": programme,
         "source_file": pdf_path.name,
         "chapter_number": chapter,
+        "verified_chapter_heading": verified_heading,
+        "chapter_heading_verified": bool(verified_heading),
         "section_name": section_name or None,
         "evidence_type": "Hindi translation / explanatory text; distinguish Sanskrit verses from translator/editor commentary",
         "pages": excerpts,

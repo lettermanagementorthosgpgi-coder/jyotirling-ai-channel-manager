@@ -61,10 +61,10 @@ def _extract_chapter_text(video, final_package):
     source = video.get("primary_scripture_source") or {}
     if source.get("status") != "matched":
         return ""
-    chapter = video.get("chapter_number")
-    title = video.get("chapter_title")
-    if chapter and title:
-        return f"अध्याय {chapter} — {title}"
+    verified_heading = source.get("verified_chapter_heading")
+    if verified_heading:
+        return _clean_markup(verified_heading)
+    return ""
     lines = _brief_lines(final_package)
     for line in lines:
         if "अध्याय-सूचना" in line or "अध्याय पहचान" in line:
@@ -226,7 +226,7 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
         "channel_header": "ज्योतिर्लिंग शिवमठ | बरौली, लखनऊ",
         "programme_label": book_label,
         "chapter_text": chapter_text or None,
-        "chapter_verified": bool(video.get("primary_scripture_source", {}).get("status") == "matched" and video.get("chapter_number")),
+        "chapter_verified": bool(video.get("primary_scripture_source", {}).get("chapter_heading_verified")),
         "thumbnail_headline": headline,
         "author_name": "महंत राजेश कुमार तिवारी ‘रंजन’",
         "background_overlay": "localized_text_shadow_only",

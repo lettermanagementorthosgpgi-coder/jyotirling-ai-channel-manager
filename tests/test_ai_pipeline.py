@@ -21,7 +21,7 @@ class AIPipelineTests(unittest.TestCase):
 
         def fake_generate(provider, prompt):
             calls.append(provider)
-            return (("शिव पुराण त्रिपुर प्रसंग शीर्षक विवरण टैग thumbnail headline " + "यह प्रमाण आधारित विस्तृत सामग्री है। " * 18), f"{provider}-test-model")
+            return (("शिव पुराण त्रिपुर प्रसंग शीर्षक विवरण टैग thumbnail headline " + "यह प्रमाण आधारित विस्तृत सामग्री है। सत्यापन सुधार review " * 18), f"{provider}-test-model")
 
         def fake_image(provider, prompt):
             if provider == "openai":
