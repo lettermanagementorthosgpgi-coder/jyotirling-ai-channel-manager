@@ -31,6 +31,7 @@ on:
       - feature/new-upload-preparation-queue
     paths:
       - .github/workflows/channel-audit.yml
+      - src/scripture_sources.py
   schedule:
     - cron: "0 * * * *"
 
