@@ -88,11 +88,21 @@ def _thumbnail_prompt(video, final_package):
     chapter_number = video.get("chapter_number") or ""
     section = video.get("khanda_name") or video.get("programme_feed", {}).get("section_name") or ""
     if programme == "bhagavad_gita":
-        scene_direction = (
-            "Create a respectful, cinematic Bhagavad Gita scene specifically grounded in the supplied chapter title "
-            "and evidence brief. Krishna and Arjuna may appear only when relevant to the chapter. Do not assume "
-            "that every chapter is about faith or the same episode. No Shiva, trident or unrelated deities."
-        )
+        if str(chapter_number) == "17":
+            scene_direction = (
+                "Depict the Bhagavad Gita chapter 17, Shraddhatraya Vibhaga Yoga: Lord Krishna, clearly recognizable "
+                "as the blue-skinned divine charioteer in yellow garments, teaching Arjuna seated beside him in the "
+                "Kurukshetra chariot. Krishna is the teacher, not an archer; do not put a bow in Krishna's hands. "
+                "Arjuna may hold his bow lowered respectfully. In the distant background, use three subtle visual "
+                "areas suggesting sattvic, rajasic and tamasic faith, worship and discipline. No buffalo, bull, "
+                "Shiva, trident, Rama, Hanuman, or unrelated deities/animals."
+            )
+        else:
+            scene_direction = (
+                "Create a respectful, cinematic Bhagavad Gita scene specifically grounded in the supplied chapter "
+                "title and evidence brief. Show Krishna and Arjuna only in roles and actions appropriate to that "
+                "chapter. Do not reuse a generic scene or add unrelated deities, animals or symbols."
+            )
     else:
         scene_direction = (
             "Create a respectful, cinematic Shiv Mahapuran scene specifically grounded in the supplied khanda, "
