@@ -119,7 +119,7 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
     chapter_text = _extract_chapter_text(video, final_package)
     section_name = video.get("khanda_name")
     if section_name and section_name not in chapter_text:
-        chapter_text = f"{section_name} • {chapter_text}"
+        chapter_text = f"{section_name} — {chapter_text}"
     headline = _extract_headline(final_package, chapter_text)
 
     # Clear, exact channel header.
