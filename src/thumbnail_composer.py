@@ -167,9 +167,9 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
 
     # Name plaque below the portrait.
     draw_name = ImageDraw.Draw(image)
-    name_font = _font(18, devanagari=False, bold=True)
+    name_font = _font(16, devanagari=False, bold=True)
     name = "Mahant Rajesh Kumar Tiwari Ranjan"
-    name_lines = _wrap_text(draw_name, name, name_font, 270, max_lines=2)
+    name_lines = _wrap_text(draw_name, name, name_font, 218, max_lines=2)
     plaque_top = min(610, y_photo + portrait.height + 16)
     draw_name.rounded_rectangle((x-28, plaque_top, 1260, min(696, plaque_top + 62)),
                                 radius=12, fill=(7, 15, 31), outline=(235, 190, 94), width=2)
@@ -177,7 +177,7 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
     for line in name_lines:
         draw_name.text((x-15, line_y), line, font=name_font, fill=(255, 248, 226),
                        stroke_width=1, stroke_fill=(0, 0, 0))
-        line_y += 22
+        line_y += 19
 
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
