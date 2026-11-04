@@ -21,6 +21,39 @@ ROLES = [
 ]
 
 
+def _programme_hint(video):
+    explicit = video.get("programme")
+    if explicit in ("shiv_puran", "bhagavad_gita"):
+        return explicit
+    text = " ".join(str(video.get(key) or "") for key in
+                    ("source_title", "title", "source_description", "description")).lower()
+    if any(term in text for term in ("bhagavad", "bhagvad", "गीता", "gita")):
+        return "bhagavad_gita"
+    if any(term in text for term in ("shiv", "शिव", "त्रिपुर", "tripur", "रुद्र", "rudra", "महादेव")):
+        return "shiv_puran"
+    return None
+
+
+def _validate_stage_output(role, output, video):
+    text = str(output or "").strip()
+    if len(text) < 140:
+        return False, "AI response is too short to be a usable evidence-based deliverable."
+    programme = _programme_hint(video)
+    lowered = text.lower()
+    if programme == "bhagavad_gita":
+        anchors = ("गीता", "gita", "कृष्ण", "krishna", "अर्जुन", "arjuna")
+    elif programme == "shiv_puran":
+        anchors = ("शिव", "shiv", "त्रिपुर", "tripur", "रुद्र", "rudra", "पुराण", "puran")
+    else:
+        anchors = ()
+    if anchors and not any(term in lowered for term in anchors):
+        return False, f"AI response does not contain a verified {programme} subject anchor."
+    if role == "AI-2_youtube_seo_and_thumbnail_brief" and not any(
+            term in lowered for term in ("thumbnail", "थंबनेल", "शीर्षक", "title")):
+        return False, "SEO stage omitted title/thumbnail deliverable markers."
+    return True, None
+
+
 def _safe_id(value):
     cleaned = re.sub(r"[^A-Za-z0-9_-]+", "_", str(value or "video"))
     return cleaned[:100] or "video"
@@ -168,13 +201,15 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                 stages = {}
                 db.execute("DELETE FROM preparations_v2 WHERE video_id=?", (vid,))
                 db.commit()
+                for suffix in ("_background.png", "_thumbnail.png"):
+                    (thumbnail_dir / f"{_safe_id(vid)}{suffix}").unlink(missing_ok=True)
 
-            source_basis = "transcript"
+            scripture_source = find_primary_scripture_source(item)
+            item["primary_scripture_source"] = scripture_source
+            source_basis = "transcript_and_scripture_reference" if transcript and scripture_source.get("status") == "matched" else "transcript"
             if transcript:
                 db.execute("DELETE FROM source_retry WHERE video_id=?", (vid,))
             else:
-                scripture_source = find_primary_scripture_source(item)
-                item["primary_scripture_source"] = scripture_source
                 now = datetime.now(timezone.utc)
                 retry_row = db.execute(
                     "SELECT first_seen_at, fallback_allowed_at FROM source_retry WHERE video_id=?",
@@ -219,6 +254,12 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                 source_basis = ("primary_scripture" if scripture_source.get("status") == "matched" else "description_fallback_after_48_hours")
 
             errors = []
+            # Revalidate saved drafts so previous off-topic output is not trusted.
+            for cached_role in list(stages):
+                valid, reason = _validate_stage_output(cached_role, stages[cached_role].get("output"), item)
+                if not valid:
+                    stages.pop(cached_role, None)
+                    errors.append({"role": cached_role, "provider": "cached_output", "error": reason})
             if not providers:
                 item["ai_preparation"] = {
                     "status": "blocked_missing_api_keys",
@@ -248,6 +289,9 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                     try:
                         output, model = generate(
                             provider, _prompt(instruction, item, previous, transcript))
+                        valid, validation_error = _validate_stage_output(role, output, item)
+                        if not valid:
+                            raise ValueError("AI output rejected by quality gate: " + validation_error)
                         stages[role] = {"provider": provider, "model": model, "output": output}
                         db.execute("""INSERT INTO preparations_v2(video_id, stages_json, updated_at)
                             VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(video_id) DO UPDATE SET
@@ -338,12 +382,13 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                     "attempts": thumbnail_result.get("provider_attempts", []),
                     "fallback_errors": thumbnail_result.get("fallback_errors", [])
                 }
+            ready_for_review = complete and thumbnail_result.get("status") == "thumbnail_ready_for_user_review"
             item["ai_preparation"] = {
-                "status": "ready_for_user_review" if complete else "pending_provider_or_retry",
+                "status": "ready_for_user_review" if ready_for_review else ("pending_thumbnail_generation" if complete else "pending_provider_or_retry"),
                 "stages": stages,
                 "provider_attempts": errors,
                 "transcript_available": bool(transcript),
-                "grounding": "transcript_and_metadata" if transcript else source_basis,
+                "grounding": source_basis,
                 "thumbnail": thumbnail_result
             }
             result_items.append(item)

@@ -3,10 +3,28 @@ from __future__ import annotations
 
 from datetime import datetime, date
 from zoneinfo import ZoneInfo
+import re
+
+
+def _classify_programme(video):
+    text = " ".join(str(video.get(key) or "") for key in
+                    ("title", "description", "source_title", "source_description")).lower()
+    if any(term in text for term in ("bhagavad gita", "bhagvadgita", "bhagavadgita", "गीता", "गीताजी", "gita")):
+        return "bhagavad_gita"
+    if any(term in text for term in ("shiv puran", "shiv mahapuran", "शिवपुराण", "शिव पुराण",
+                                     "त्रिपुर", "tripur", "रुद्र", "rudra", "महादेव", "शंकर")):
+        return "shiv_puran"
+    return None
+
+
+def _chapter_number(text):
+    match = re.search(r"(?:अध्याय|adhyay|chapter)\\s*[-:#]?\\s*([0-9]{1,2})", text, re.I)
+    return int(match.group(1)) if match else None
 
 
 def build_new_upload_preparation_queue(videos, start_date, timezone="Asia/Kolkata",
-                                       include_video_ids=None, end_date=None):
+                                       include_video_ids=None, end_date=None,
+                                       programme_feeds=None):
     """Queue public videos on/after start_date plus explicitly selected video IDs.
 
     This prepares review records only. It never edits YouTube metadata, downloads
@@ -37,6 +55,14 @@ def build_new_upload_preparation_queue(videos, start_date, timezone="Asia/Kolkat
         if end_cutoff and published_local.date() > end_cutoff and not explicitly_selected:
             continue
 
+        programme = _classify_programme(video)
+        slot = "evening" if programme == "bhagavad_gita" else "morning" if programme == "shiv_puran" else None
+        feed = ((programme_feeds or {}).get(slot) or {}) if slot else {}
+        source_text = " ".join(str(video.get(key) or "") for key in ("title", "description"))
+        chapter_number = _chapter_number(source_text) or feed.get("chapter_number")
+        chapter_title = feed.get("chapter_title") if chapter_number == feed.get("chapter_number") else None
+        section_name = feed.get("section_name") or feed.get("khanda_name")
+
         queue.append({
             "video_id": video_id,
             "url": video.get("url"),
@@ -46,6 +72,12 @@ def build_new_upload_preparation_queue(videos, start_date, timezone="Asia/Kolkat
             "source_title": video.get("title"),
             "source_description": video.get("description"),
             "source_tags": video.get("tags", []),
+            "programme": programme,
+            "programme_slot": slot,
+            "programme_feed": feed or None,
+            "chapter_number": chapter_number,
+            "chapter_title": chapter_title,
+            "khanda_name": section_name,
             "duration": video.get("duration"),
             "lifetime_statistics": video.get("lifetime_statistics", {}),
             "last_90_days_analytics": video.get("last_90_days_analytics"),
@@ -83,6 +115,7 @@ def build_new_upload_preparation_queue(videos, start_date, timezone="Asia/Kolkat
     return {
         "start_date_local": start_date,
         "end_date_local": end_date,
+        "date_scope": "inclusive_local_calendar_dates",
         "timezone": timezone,
         "explicitly_included_video_ids": sorted(explicit_ids),
         "videos_in_queue": len(queue),

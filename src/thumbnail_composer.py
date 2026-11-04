@@ -54,10 +54,13 @@ def _extract_headline(final_package, fallback):
                 return candidate
             if i + 1 < len(lines):
                 return _clean_markup(lines[i + 1]).strip("“”\"'")
-    return _clean_markup(fallback) or "विशेष आध्यात्मिक प्रवचन"
+    return _clean_markup(fallback)
 
 
 def _extract_chapter_text(video, final_package):
+    source = video.get("primary_scripture_source") or {}
+    if source.get("status") != "matched":
+        return ""
     chapter = video.get("chapter_number")
     title = video.get("chapter_title")
     if chapter and title:
@@ -73,7 +76,7 @@ def _extract_chapter_text(video, final_package):
         match = re.search(r"(अध्याय\s*[0-9०-९]+\s*[—-]\s*.+)", line)
         if match:
             return _clean_markup(match.group(1))
-    return f"अध्याय {chapter}" if chapter else "विशेष आध्यात्मिक प्रवचन"
+    return f"अध्याय {chapter}" if chapter else ""
 
 
 def _wrap_text(draw, text, font, max_width, max_lines=2):
@@ -135,12 +138,16 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
     draw = ImageDraw.Draw(overlay)
 
     programme = video.get("programme")
+    if programme not in ("shiv_puran", "bhagavad_gita"):
+        raise ValueError("Programme could not be identified; refusing to place an incorrect book label on the thumbnail.")
     book_label = "भगवद्गीता" if programme == "bhagavad_gita" else "शिव महापुराण"
     chapter_text = _extract_chapter_text(video, final_package)
     section_name = video.get("khanda_name")
     if section_name and section_name not in chapter_text:
         chapter_text = f"{section_name} — {chapter_text}"
-    headline = _extract_headline(final_package, chapter_text)
+    headline = _extract_headline(final_package, title)
+    if not headline:
+        raise ValueError("AI SEO package did not provide a usable thumbnail headline.")
 
     # FIXED TOP-MIDDLE identity: two Hindi lines in a compact ornamental plaque.
     _ornamental_plaque(draw, (340, 6, 940, 104), fill=(7, 19, 39, 225))
@@ -162,12 +169,13 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
                    (255, 225, 133, 255))
 
     # Chapter information sits immediately above the bottom book plaque.
-    chapter_font = _font(30)
-    chapter_lines = _wrap_text(draw, chapter_text, chapter_font, 790, max_lines=2)
-    chapter_start_y = 574 if len(chapter_lines) == 1 else 552
-    for index, line in enumerate(chapter_lines):
-        _glow_text(draw, (790, chapter_start_y + index * 38), line, chapter_font,
-                   (255, 255, 255, 255))
+    if chapter_text:
+        chapter_font = _font(30)
+        chapter_lines = _wrap_text(draw, chapter_text, chapter_font, 790, max_lines=2)
+        chapter_start_y = 574 if len(chapter_lines) == 1 else 552
+        for index, line in enumerate(chapter_lines):
+            _glow_text(draw, (790, chapter_start_y + index * 38), line, chapter_font,
+                       (255, 255, 255, 255))
 
     # Original author portrait stays on the LEFT, unflipped and unretouched.
     portrait = Image.open(_photo_path()).convert("RGB")
@@ -217,7 +225,8 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
         "dimensions": "1280x720",
         "channel_header": "ज्योतिर्लिंग शिवमठ | बरौली, लखनऊ",
         "programme_label": book_label,
-        "chapter_text": chapter_text,
+        "chapter_text": chapter_text or None,
+        "chapter_verified": bool(video.get("primary_scripture_source", {}).get("status") == "matched" and video.get("chapter_number")),
         "thumbnail_headline": headline,
         "author_name": "महंत राजेश कुमार तिवारी ‘रंजन’",
         "background_overlay": "localized_text_shadow_only",

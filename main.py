@@ -173,13 +173,14 @@ def main():
     prep = config.get("new_upload_preparation", {})
     today_local = datetime.now(ZoneInfo(config.get("timezone", "Asia/Kolkata"))).date()
     from datetime import timedelta
-    default_start = (today_local - timedelta(days=90)).isoformat()
+    today_iso = today_local.isoformat()
     queue = build_new_upload_preparation_queue(
         result["videos"],
-        start_date=manual_from or default_start,
-        end_date=manual_to or None,
+        start_date=manual_from or today_iso,
+        end_date=manual_to or today_iso,
         timezone=config.get("timezone", "Asia/Kolkata"),
-        include_video_ids=[] if manual_range else prep.get("include_video_ids", []))
+        include_video_ids=[] if manual_range else prep.get("include_video_ids", []),
+        programme_feeds=None if manual_range else daily_programme_feeds)
     performance_db = ROOT / ".state" / "preparation.sqlite"
     performance_end = today_local.isoformat()
     for item in queue.get("items", []):
@@ -210,7 +211,7 @@ def main():
     result["new_upload_preparation"] = {
         "start_date_local": queue["start_date_local"],
         "end_date_local": queue.get("end_date_local"),
-        "scope": "manual_inclusive_date_range" if manual_range else "new_uploads_and_selected_reviews",
+        "scope": "manual_inclusive_date_range" if manual_range else "today_local_uploads_plus_explicit_reviews",
         "timezone": queue["timezone"],
         "explicitly_included_video_ids": queue["explicitly_included_video_ids"],
         "videos_in_queue": queue["videos_in_queue"],
