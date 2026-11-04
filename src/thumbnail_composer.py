@@ -143,9 +143,9 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
     headline = _extract_headline(final_package, chapter_text)
 
     # FIXED TOP-MIDDLE identity: two Hindi lines in a compact ornamental plaque.
-    _ornamental_plaque(draw, (340, 18, 940, 116), fill=(7, 19, 39, 225))
-    _centered(draw, (640, 53), "ज्योतिर्लिंग शिवमठ", _font(38), (255, 239, 193, 255))
-    _centered(draw, (640, 88), "बरौली, लखनऊ", _font(23), (255, 255, 255, 255),
+    _ornamental_plaque(draw, (340, 6, 940, 104), fill=(7, 19, 39, 225))
+    _centered(draw, (640, 39), "ज्योतिर्लिंग शिवमठ", _font(38), (255, 239, 193, 255))
+    _centered(draw, (640, 73), "बरौली, लखनऊ", _font(23), (255, 255, 255, 255),
               stroke_width=1, stroke_fill=(20, 12, 4, 255))
 
     # Main subject is directly over the artwork, never inside a large dark panel.
