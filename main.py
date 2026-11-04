@@ -20,11 +20,37 @@ def main():
     report_dir = ROOT / "reports"
     report_dir.mkdir(exist_ok=True)
     stamp = datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
-    result = run_channel_audit(youtube, analytics, reporting=reporting,
-        reporting_session=session,
-        max_videos=int(config["audit"]["max_videos_per_run"]),
-        include_unlisted=bool(config["audit"]["include_unlisted"]),
-        daily_analytics_days=int(config["audit"].get("daily_analytics_days",30)))
+    try:
+        result = run_channel_audit(youtube, analytics, reporting=reporting,
+            reporting_session=session,
+            max_videos=int(config["audit"]["max_videos_per_run"]),
+            include_unlisted=bool(config["audit"]["include_unlisted"]),
+            daily_analytics_days=int(config["audit"].get("daily_analytics_days",30)))
+    except Exception as exc:
+        # YouTube Data API quota is a temporary condition. Save a clear report
+        # and exit successfully; the hourly scheduled workflow will retry.
+        error_text = str(exc)
+        is_quota_error = ("quotaExceeded" in error_text or
+                          "exceeded your quota" in error_text.lower())
+        if not is_quota_error:
+            raise
+        deferred = {
+            "report_type": "youtube_quota_deferred",
+            "status": "waiting_for_youtube_api_quota",
+            "checked_at_local": datetime.now().astimezone().isoformat(),
+            "error": error_text[:1500],
+            "retry_policy": {
+                "enabled": True,
+                "schedule": "GitHub Actions retries automatically on the existing hourly schedule",
+                "next_action": "When YouTube Data API quota is available, rerun the channel audit, collect the video inventory/transcripts, and continue AI preparation and thumbnail generation.",
+                "no_youtube_changes_made": True
+            }
+        }
+        out = report_dir / f"channel_audit_{stamp}_quota_deferred.json"
+        out.write_text(json.dumps(deferred, ensure_ascii=False, indent=2), encoding="utf-8")
+        print("YOUTUBE API QUOTA UNAVAILABLE: preparation deferred; hourly retry remains enabled.")
+        print(f"Quota deferral report: {out}")
+        return
 
     # Explicit opt-in only: generate and upload a thumbnail to the single approved Monday bhajan video.
     if os.getenv("APPLY_MONDAY_BHAJAN_THUMBNAIL", "false").strip().lower() == "true":
