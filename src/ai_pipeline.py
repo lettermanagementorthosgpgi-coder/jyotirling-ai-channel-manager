@@ -153,7 +153,8 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                         "first_seen_at": first_seen_at,
                         "fallback_allowed_at": fallback_allowed_at,
                         "hours_until_description_fallback": remaining,
-                        "primary_scripture_source_status": "not_yet_connected",
+                        "primary_scripture_source_status": scripture_source.get("status"),
+                        "primary_scripture_source": scripture_source,
                         "note": "Description-based AI drafting is intentionally held until the full 48-hour retry window has elapsed."
                     }
                     result_items.append(item)
