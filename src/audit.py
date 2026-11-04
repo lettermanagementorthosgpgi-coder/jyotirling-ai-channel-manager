@@ -200,16 +200,36 @@ def _fetch_video_details(youtube, video_ids):
     return details
 
 
-def _incremental_inventory(youtube, playlist_id, cached_by_id, max_videos):
-    """Scan newest-first until the first known upload; fetch details only for new IDs."""
-    new_playlist_items, new_ids, seen = [], [], set()
-    token, scanned, found_known = None, 0, False
-    while scanned < max_videos:
+def _bounded_playlist_items(youtube, playlist_id, max_videos):
+    """Read at most max_videos newest upload-playlist entries; never page full history."""
+    items_out, token = [], None
+    limit = max(1, int(max_videos))
+    while len(items_out) < limit:
+        page_size = min(50, limit - len(items_out))
         page = youtube.playlistItems().list(part="snippet,contentDetails",
-            playlistId=playlist_id, maxResults=50, pageToken=token).execute()
+            playlistId=playlist_id, maxResults=page_size, pageToken=token).execute()
+        page_items = page.get("items", [])
+        items_out.extend(page_items[:limit - len(items_out)])
+        if not page.get("nextPageToken") or not page_items:
+            break
+        token = page.get("nextPageToken")
+    return items_out
+
+
+def _incremental_inventory(youtube, playlist_id, cached_by_id, max_videos):
+    """Check newest playlist entries only until the first cached upload."""
+    new_playlist_items, seen = [], set()
+    token, scanned, found_known = None, 0, False
+    limit = max(1, int(max_videos))
+    while scanned < limit:
+        page_size = min(50, limit - scanned)
+        page = youtube.playlistItems().list(part="snippet,contentDetails",
+            playlistId=playlist_id, maxResults=page_size, pageToken=token).execute()
         items = page.get("items", [])
-        scanned += len(items)
         for item in items:
+            if scanned >= limit:
+                break
+            scanned += 1
             video_id = item.get("contentDetails", {}).get("videoId")
             if not video_id:
                 continue
@@ -218,14 +238,11 @@ def _incremental_inventory(youtube, playlist_id, cached_by_id, max_videos):
                 break
             if video_id not in seen:
                 seen.add(video_id)
-                new_ids.append(video_id)
                 new_playlist_items.append(item)
         if found_known or not page.get("nextPageToken") or not items:
             break
         token = page.get("nextPageToken")
 
-    # If a cache exists but no known item was encountered, continue scanning the
-    # complete playlist up to the configured cap; this also repairs stale caches.
     ids, duplicate_entries = _unique_playlist_video_ids(new_playlist_items)
     new_details = _fetch_video_details(youtube, ids)
     updated = dict(cached_by_id)
@@ -254,12 +271,20 @@ def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=Fals
         videos_by_id, playlist_scanned, duplicate_entries, newly_found = _incremental_inventory(
             youtube, playlist, cached_by_id, max_videos)
     else:
-        playlist_items = _paged_request(youtube.playlistItems(), "list",
-            part="snippet,contentDetails", playlistId=playlist, maxResults=50)[:max_videos]
+        # First run is deliberately bounded; do not walk all historical playlist pages.
+        playlist_items = _bounded_playlist_items(youtube, playlist, max_videos)
         ids, duplicate_entries = _unique_playlist_video_ids(playlist_items)
         initial_details = _fetch_video_details(youtube, ids)
         videos_by_id = {v["id"]: v for v in initial_details if v.get("id")}
         playlist_scanned, newly_found = len(playlist_items), len(ids)
+
+    # Explicitly selected review videos are fetched by ID even when older than the
+    # bounded recent-upload cache, so a requested historical review is never missed.
+    missing_explicit_ids = sorted(explicit_video_ids - set(videos_by_id))
+    if missing_explicit_ids:
+        for item in _fetch_video_details(youtube, missing_explicit_ids):
+            if item.get("id"):
+                videos_by_id[item["id"]] = item
 
     _write_inventory_cache(inventory_cache_path, channel_id, playlist, videos_by_id)
     details, duplicate_resources = _unique_video_details(list(videos_by_id.values()))
@@ -285,17 +310,19 @@ def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=Fals
         sn, stats = video.get("snippet", {}), video.get("statistics", {})
         content, vid = video.get("contentDetails", {}), video.get("id")
         published_raw = sn.get("publishedAt")
-        if not published_raw:
+        stream_started_raw = video.get("liveStreamingDetails", {}).get("actualStartTime")
+        date_basis_raw = stream_started_raw or published_raw
+        if not date_basis_raw:
             continue
         try:
-            published_local_dt = datetime.fromisoformat(published_raw.replace("Z", "+00:00")).astimezone(tz)
-            published_local = published_local_dt.date()
+            programme_local_dt = datetime.fromisoformat(date_basis_raw.replace("Z", "+00:00")).astimezone(tz)
+            programme_local_date = programme_local_dt.date()
         except (TypeError, ValueError):
             continue
         if manual_mode:
-            if not (manual_start <= published_local <= manual_end):
+            if not (manual_start <= programme_local_date <= manual_end):
                 continue
-        elif not (published_local_dt >= rolling_48h_cutoff or published_local == review_date
+        elif not (programme_local_dt >= rolling_48h_cutoff or programme_local_date == review_date
                   or vid in explicit_video_ids):
             continue
         thumbs = sn.get("thumbnails", {})
@@ -373,11 +400,13 @@ def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=Fals
         "thumbnail_reach_reports_read":0,
         "thumbnail_reach_job_created":False,
         "thumbnail_reach_report_type_id":None,
-        "playlist_items_scanned":playlist_scanned,"unique_video_ids":len(ids),
+        "playlist_items_examined_until_first_cached_upload":playlist_scanned,
         "new_video_ids_discovered_this_run":newly_found,
         "inventory_cache_used":bool(cached_by_id),
-        "inventory_cache_video_count":len(videos_by_id),
-        "inventory_video_count":len(videos),
+        "cached_inventory_video_count":len(videos_by_id),
+        "targeted_video_count":len(videos),
+        "targeted_video_ids":target_ids,
+        "targeting_note":"Only videos in the rolling 48-hour window, the single calendar date 90 days ago, or explicitly selected review IDs are refreshed and included. Cached historical inventory is not re-read in full.",
         "duplicate_uploads_playlist_entry_count":len(duplicate_entries),
         "duplicate_uploads_playlist_entries":duplicate_entries,
         "duplicate_uploads_playlist_entries_note":"Repeated uploads-playlist references are not additional videos.",
