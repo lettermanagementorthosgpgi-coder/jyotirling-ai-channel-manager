@@ -43,12 +43,12 @@ def _unique_video_details(items):
     return out, duplicates
 
 
-def _query_all_rows(analytics, start, end, dimensions, metrics, sort="-views", page_size=200):
+def _query_all_rows(analytics, start, end, dimensions, metrics, sort="-views", page_size=200, filters=None):
     rows_out, page, headers, pages = [], 1, None, 0
     while True:
         result = analytics.reports().query(ids="channel==MINE", startDate=start,
             endDate=end, metrics=metrics, dimensions=dimensions, sort=sort,
-            maxResults=page_size, startIndex=page).execute()
+            filters=filters, maxResults=page_size, startIndex=page).execute()
         pages += 1
         if headers is None: headers = [h.get("name") for h in result.get("columnHeaders", [])]
         rows = result.get("rows", [])
@@ -64,10 +64,8 @@ def _analytics_by_video(analytics, start, end, video_ids=None):
     try:
         if video_ids is not None and not video_ids:
             return {"available":True,"by_video":{},"pages_fetched":0,"videos_with_analytics":0}
-        rows, pages = _query_all_rows(analytics, start, end, "video", metrics)
-        if video_ids is not None:
-            allowed = set(video_ids)
-            rows = [row for row in rows if row.get("video") in allowed]
+        rows, pages = _query_all_rows(analytics, start, end, "video", metrics,
+                                      filters="video==" + ",".join(video_ids) if video_ids else None)
         data = {}
         for row in rows:
             vid = row.pop("video", None)
@@ -319,24 +317,30 @@ def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=Fals
     reach = {"available":False,"reason":"Thumbnail reach report downloads disabled in targeted scan.",
              "by_video":{},"reports_read":0,"job_created":False}
 
-    return {"report_type":"read_only_channel_audit","report_schema_version":4,
-        "period":{"start":start.isoformat(),"end":today.isoformat()},
-        "daily_analytics_period":{"start":daily_start.isoformat(),"end":today.isoformat(),
-            "days_requested":daily_analytics_days},
+    return {"report_type":"read_only_channel_audit","report_schema_version":5,
+        "period":{"start":analytics_start.isoformat(),"end":analytics_end.isoformat()},
+        "daily_analytics_period":{"start":analytics_start.isoformat(),"end":analytics_end.isoformat(),
+            "days_requested":(analytics_end-analytics_start).days+1},
+        "scan_scope":{"mode":"manual_date_range" if manual_mode else "daily_targeted",
+            "manual_from_date":manual_from_date,"manual_to_date":manual_to_date,
+            "rolling_review_date":None if manual_mode else review_date.isoformat(),
+            "automatic_video_dates":None if manual_mode else [
+                (today_local-timedelta(days=1)).isoformat(),today_local.isoformat(),review_date.isoformat()],
+            "full_channel_video_details_refetched":False},
         "channel":{"id":channel.get("id"),"title":channel.get("snippet",{}).get("title"),
             "custom_url":channel.get("snippet",{}).get("customUrl"),
             "statistics":channel.get("statistics",{})},
         "analytics_available":aggregate["available"],"analytics_note":aggregate.get("reason"),
         "analytics_pages_fetched":aggregate["pages_fetched"],
-        "videos_with_90_day_analytics":aggregate["videos_with_analytics"],
+        "videos_with_target_period_analytics":aggregate["videos_with_analytics"],
         "daily_analytics_available":daily["available"],"daily_analytics_note":daily.get("reason"),
-        "daily_analytics_scope":daily.get("scope","channel"),
+        "daily_analytics_scope":"disabled",
         "daily_channel_analytics":daily.get("by_day",{}),
         "daily_analytics_pages_fetched":daily["pages_fetched"],"daily_analytics_rows":daily["daily_rows"],
-        "thumbnail_reach_available":reach["available"],"thumbnail_reach_note":reach.get("reason"),
-        "thumbnail_reach_reports_read":reach["reports_read"],
-        "thumbnail_reach_job_created":reach["job_created"],
-        "thumbnail_reach_report_type_id":reach.get("report_type_id"),
+        "thumbnail_reach_available":False,"thumbnail_reach_note":reach.get("reason"),
+        "thumbnail_reach_reports_read":0,
+        "thumbnail_reach_job_created":False,
+        "thumbnail_reach_report_type_id":None,
         "playlist_items_scanned":playlist_scanned,"unique_video_ids":len(ids),
         "new_video_ids_discovered_this_run":newly_found,
         "inventory_cache_used":bool(cached_by_id),
