@@ -28,6 +28,7 @@ def main():
     manual_from = os.getenv("MANUAL_FROM_DATE", "").strip()
     manual_to = os.getenv("MANUAL_TO_DATE", "").strip()
     manual_range = bool(manual_from or manual_to)
+    prep = config.get("new_upload_preparation", {})
     if manual_range and (not manual_from or not manual_to):
         raise ValueError("Manual date range requires both MANUAL_FROM_DATE and MANUAL_TO_DATE (YYYY-MM-DD).")
     try:
@@ -42,7 +43,8 @@ def main():
             inventory_cache_path=ROOT / ".state" / "channel_inventory.json",
             manual_from_date=manual_from or None,
             manual_to_date=manual_to or None,
-            timezone=config.get("timezone", "Asia/Kolkata"))
+            timezone=config.get("timezone", "Asia/Kolkata"),
+            include_video_ids=[] if manual_range else prep.get("include_video_ids", []))
         if not result.get("channel", {}).get("id") or not result.get("videos"):
             raise RuntimeError("YouTube API returned no usable channel/video inventory; switching to book-based manual mode.")
     except Exception as exc:
@@ -170,7 +172,6 @@ def main():
         }
 
     result["daily_programme_feeds"] = daily_programme_feeds
-    prep = config.get("new_upload_preparation", {})
     today_local = datetime.now(ZoneInfo(config.get("timezone", "Asia/Kolkata"))).date()
     from datetime import timedelta
     today_iso = today_local.isoformat()
