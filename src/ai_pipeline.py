@@ -175,27 +175,36 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                         p for p in providers if p != "cloudflare"
                     ]
                     image_errors = []
+                    image_attempts = []
                     for provider in image_order:
                         try:
                             image_bytes, image_model = generate_thumbnail_background(
                                 provider, _thumbnail_prompt(item, final_package))
-                            if not image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+                            if not image_bytes.startswith(b"\\x89PNG\\r\\n\\x1a\\n"):
                                 raise ValueError("Image provider did not return a PNG file")
                             image_path.write_bytes(image_bytes)
+                            image_attempts.append({
+                                "provider": provider, "model": image_model,
+                                "status": "success"
+                            })
                             thumbnail_result = {
                                 "status": "background_ready_needs_brand_composition",
                                 "file": str(image_path),
                                 "provider": provider,
                                 "model": image_model,
-                                "note": "Background artwork only. The fixed channel branding and original author photo still need to be composited."
+                                "provider_attempts": image_attempts,
+                                "fallback_errors": image_errors,
+                                "note": "AI-generated background; original author photo and channel branding are composited separately."
                             }
                             break
                         except Exception as exc:
-                            image_errors.append({"provider": provider,
-                                                 "error": f"{type(exc).__name__}: {exc}"[:500]})
+                            failure = {"provider": provider, "status": "failed",
+                                        "error": f"{type(exc).__name__}: {exc}"[:500]}
+                            image_errors.append(failure)
+                            image_attempts.append(failure)
                     if thumbnail_result["status"] == "not_attempted":
                         thumbnail_result = {"status": "image_generation_pending",
-                                             "provider_attempts": image_errors}
+                                             "provider_attempts": image_attempts}
 
             if thumbnail_result.get("file") and Path(thumbnail_result["file"]).exists():
                 try:
@@ -216,6 +225,13 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                         "composition_error": f"{type(exc).__name__}: {exc}"[:500]
                     }
 
+            if thumbnail_result.get("provider"):
+                thumbnail_result["image_generation"] = {
+                    "provider": thumbnail_result.get("provider"),
+                    "model": thumbnail_result.get("model"),
+                    "attempts": thumbnail_result.get("provider_attempts", []),
+                    "fallback_errors": thumbnail_result.get("fallback_errors", [])
+                }
             item["ai_preparation"] = {
                 "status": "ready_for_user_review" if complete else "pending_provider_or_retry",
                 "stages": stages,
