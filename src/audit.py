@@ -305,6 +305,24 @@ def run_channel_audit(youtube, analytics, max_videos=5000, include_unlisted=Fals
             "daily_analytics":[],
             "url":f"https://www.youtube.com/watch?v={vid}"})
     target_ids = [v["video_id"] for v in videos]
+    # Refresh current metadata/statistics only for the selected date cohorts.
+    # The 730-video inventory remains cached; this request is limited to the few
+    # selected IDs (at most 50 IDs per videos.list call).
+    fresh_target_details = _fetch_video_details(youtube, target_ids)
+    fresh_by_id = {v.get("id"): v for v in fresh_target_details if v.get("id")}
+    for video in videos:
+        fresh = fresh_by_id.get(video["video_id"])
+        if not fresh:
+            continue
+        sn, stats = fresh.get("snippet", {}), fresh.get("statistics", {})
+        thumbs = sn.get("thumbnails", {})
+        video.update({
+            "title": sn.get("title"),
+            "description": sn.get("description"),
+            "tags": sn.get("tags", []),
+            "thumbnail_urls": {k: v.get("url") for k, v in thumbs.items() if v.get("url")},
+            "lifetime_statistics": {k: stats.get(k) for k in ("viewCount", "likeCount", "commentCount")}
+        })
     analytics_start = manual_start if manual_mode else review_date
     analytics_end = manual_end if manual_mode else today_local
     aggregate = _analytics_by_video(analytics, analytics_start.isoformat(),
