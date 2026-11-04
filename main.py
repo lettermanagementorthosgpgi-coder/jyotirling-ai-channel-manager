@@ -25,7 +25,8 @@ def main():
             reporting_session=session,
             max_videos=int(config["audit"]["max_videos_per_run"]),
             include_unlisted=bool(config["audit"]["include_unlisted"]),
-            daily_analytics_days=int(config["audit"].get("daily_analytics_days",30)))
+            daily_analytics_days=int(config["audit"].get("daily_analytics_days",30)),
+            inventory_cache_path=ROOT / ".state" / "channel_inventory.json")
     except Exception as exc:
         # YouTube Data API quota is a temporary condition. Save a clear report
         # and exit successfully; the hourly scheduled workflow will retry.
