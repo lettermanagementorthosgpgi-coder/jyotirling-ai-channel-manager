@@ -18,7 +18,7 @@ SIZE = (1280, 720)
 # scaled proportionally to 1280x720. The portrait, header, name plaque,
 # upper "शिव पुराण कथा" plaque, outer border and "Shiv Puran" title are kept.
 MASTER_SIZE = (1672, 941)
-ART_WINDOW = (610, 304, 1660, 744)       # central scenery only
+ART_WINDOW = (640, 304, 1660, 744)       # central scenery only
 CHAPTER_WINDOW = (690, 852, 1510, 906)  # existing English subtitle only
 
 
