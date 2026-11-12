@@ -43,14 +43,42 @@ def _find_text_font():
     )
 
 
-def _font(size):
+def _find_latin_font():
+    """Find a proper bold Latin font for English-only thumbnail copy."""
+    try:
+        result = subprocess.run(
+            ["fc-match", "-f", "%{file}", "Noto Sans:style=Bold"],
+            check=True, capture_output=True, text=True, timeout=10,
+        )
+        candidate = Path(result.stdout.strip())
+        if candidate.is_file():
+            return candidate
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+    for root in (Path("/usr/share/fonts"), Path("/usr/local/share/fonts")):
+        if root.exists():
+            for pattern in ("*NotoSans*Bold*.ttf", "*DejaVuSans-Bold.ttf"):
+                matches = sorted(root.rglob(pattern))
+                if matches:
+                    return matches[0]
+    raise RuntimeError(
+        "A bold Latin font was not found. Install fonts-noto-core or fonts-dejavu-core."
+    )
+
+
+def _font(size, text=""):
     if not features.check("raqm"):
         raise RuntimeError(
             "Pillow was built without libraqm; Hindi shaping is unavailable. "
             "Install libraqm, harfbuzz and fribidi, and use a Pillow build with RAQM."
         )
+    # Use a dedicated Latin font for English-only copy. The Devanagari font is
+    # retained for Hindi and mixed-script copy so Hindi conjunct shaping stays correct.
+    has_devanagari = any("\\u0900" <= char <= "\\u097f" for char in text)
+    font_path = _find_text_font() if has_devanagari else _find_latin_font()
     return ImageFont.truetype(
-        str(_find_text_font()), size, layout_engine=ImageFont.Layout.RAQM
+        str(font_path), size, layout_engine=ImageFont.Layout.RAQM
     )
 
 
@@ -95,7 +123,7 @@ def _fit_multiline(draw, text, max_width, max_height, start_size,
                    min_size=18, max_lines=3, stroke_width=2):
     """Shrink font and wrap to fit a fixed text area; return font and lines."""
     for size in range(start_size, min_size - 1, -2):
-        font = _font(size)
+        font = _font(size, text)
         lines = _wrap_line(draw, text, font, max_width)
         spacing = max(1, size // 10)
         bounds = draw.multiline_textbbox(
@@ -108,7 +136,7 @@ def _fit_multiline(draw, text, max_width, max_height, start_size,
             return font, lines, spacing, size
     # If still too long, preserve every word but return a clear overflow error
     # instead of silently clipping or shrinking to an unreadable size.
-    font = _font(min_size)
+    font = _font(min_size, text)
     lines = _wrap_line(draw, text, font, max_width)
     if len(lines) > max_lines:
         raise ValueError(
