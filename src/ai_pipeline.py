@@ -107,16 +107,15 @@ def _prompt(role_instruction, video, previous, transcript):
         "primary_scripture_source": video.get("primary_scripture_source"),
         "previous_stage_outputs": previous,
         "thumbnail_brand_rules": [
-            "FIXED 16:9 MASTER LAYOUT; do not redesign or move permanent elements.",
-            "Original supplied author photograph is always on the LEFT, same orientation, unchanged and unretouched.",
-            "TOPMOST TOP-MIDDLE ornamental designer plaque, aligned close to the upper edge (not lowered into the picture): line 1 exactly 'ज्योतिर्लिंग शिवमठ'; line 2 exactly 'बरौली, लखनऊ'. Both lines in Hindi.",
-            "The background artwork must reserve the upper-centre band (top 14 percent of the image, central 48 percent width) for this plaque: only sky or soft distant background there; absolutely no deity/character face, head, crown, halo, hand or important subject detail behind it.",
-            "Place Krishna/Arjuna or Shiva/other chapter figures slightly lower so every face is fully visible BELOW the top plaque and never hidden by it.",
-            "BOTTOM-MIDDLE ornamental designer plaque: exactly 'शिव महापुराण' for Shiv Puran or 'भगवद्गीता' for Bhagavad Gita.",
-            "Place the verified chapter number and chapter title immediately ABOVE the bottom book plaque.",
-            "Place the main chapter-specific Hindi subject headline large over the background artwork in the centre/right, with bright high-contrast lettering, a dark outline and localized shadow only.",
-            "Keep the original background bright and visible; never put a large dark panel behind the headline or darken the whole image.",
-            "Only chapter-specific background artwork, headline and verified chapter text vary. All text must be accurate and mobile-readable."
+            "USER-APPROVED red/gold 1280x720 master layout; do not redesign or move permanent elements.",
+            "Original supplied author photograph is large on the LEFT, same orientation, unchanged and unretouched.",
+            "Top red/gold plaque says exactly 'JYOTIRLING SHIVMATH' and 'BARAULI LUCKNOW'.",
+            "Second red/gold plaque says 'श्रीमद्भगवद्गीता' for Bhagavad Gita or 'शिव महापुराण' for Shiv Puran.",
+            "Replace the large central sample text 'अध्याय 2' with a short curiosity-driving Hindi TRICKY TOPIC of 1–2 lines.",
+            "Bottom-right red/gold strip carries only the verified lesson/chapter/verse range; never invent a chapter heading.",
+            "Bottom-left author plaque preserves 'Mahant Rajesh Kumar Tiwari “Ranjan”' and the Hindi professional descriptor.",
+            "Never put an अध्याय number in the central hook. If the chapter heading is not verified from the original PDF, omit it.",
+            "Keep the generated background bright and the deity/character faces visible; keep all permanent design positions unchanged."
         ],
         "guardrails": [
             "Never invent transcript contents, quotations, shlokas, chapter names, people or events.",
@@ -131,7 +130,7 @@ def _prompt(role_instruction, video, previous, transcript):
     return (
         "You are a specialist in a two-provider review pipeline for the JYOTIRLING SHIVMATH channel.\n"
         "Evidence hierarchy: use the full YouTube transcript for the actual spoken topic. ALWAYS cross-check the chapter number and printed chapter heading against the matched primary-scripture PDF evidence, even when a transcript exists. The transcript determines what was spoken; the book verifies the chapter and scripture reference. If the transcript topic and expected book chapter conflict, flag the discrepancy and do not force the book chapter into the title or thumbnail. If the PDF does not expose the exact printed heading, state that chapter verification is pending and omit chapter numbering from the thumbnail. If transcript is absent, use matched page-cited scripture excerpts; only after the 48-hour wait may description/title be used. Distinguish Sanskrit verses from Hindi translation and commentary; never attribute commentary to the deity as verbatim speech.\n"
-        + role_instruction + "\nReturn a structured Hindi-first response. AI-2 MUST include the exact field label 'संक्षिप्त हिंदी headline: ...' with a short, accurate headline. Include title options, complete description, tags, hashtags, chapter-verification status, and visual brief. AI-3 MUST state its verification result and corrections.\n"
+        + role_instruction + "\nReturn a structured Hindi-first response. AI-2 MUST include the exact field label 'Tricky Topic: ...' with a short, curiosity-driving but scripture-accurate Hindi hook (1–2 lines). Include title options, complete description, tags, hashtags, chapter-verification status, and visual brief. AI-3 MUST state its verification result and corrections.\n"
         + json.dumps(evidence, ensure_ascii=False, indent=2)
     )
 
