@@ -127,6 +127,15 @@ def _draw_script_line(draw, xy, text, size, fill, stroke_width, stroke_fill):
         x += width
 
 
+def _script_line_height(draw, line, size, stroke_width):
+    heights = []
+    for run in _split_script_runs(line):
+        font = _font_for_run(size, run)
+        bounds = draw.textbbox((0, 0), run, font=font, stroke_width=stroke_width)
+        heights.append(bounds[3] - bounds[1])
+    return max(heights, default=size)
+
+
 def _clean(value):
     value = str(value or "").replace("`", "")
     value = re.sub(r"[\\*_]", "", value)
@@ -226,12 +235,7 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
             draw, hook, max_width=510, max_height=76,
             start_size=46, min_size=20, max_lines=3, stroke_width=3,
         )
-        line_heights = [
-            max((draw.textbbox((0, 0), run, font=_font_for_run(size, run), stroke_width=3)[3]
-                 - draw.textbbox((0, 0), run, font=_font_for_run(size, run), stroke_width=3)[1])
-                for run in _split_script_runs(line)), default=size)
-            for line in lines
-        ]
+        line_heights = [_script_line_height(draw, line, size, 3) for line in lines]
         total_height = sum(line_heights) + spacing * max(0, len(lines) - 1)
         baseline = 506 - total_height / 2
         for line, line_height in zip(lines, line_heights):
@@ -248,12 +252,7 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
             draw, lesson, max_width=690, max_height=68,
             start_size=34, min_size=18, max_lines=2, stroke_width=2,
         )
-        line_heights = [
-            max((draw.textbbox((0, 0), run, font=_font_for_run(size, run), stroke_width=2)[3]
-                 - draw.textbbox((0, 0), run, font=_font_for_run(size, run), stroke_width=2)[1])
-                for run in _split_script_runs(line)), default=size)
-            for line in lines
-        ]
+        line_heights = [_script_line_height(draw, line, size, 2) for line in lines]
         total_height = sum(line_heights) + spacing * max(0, len(lines) - 1)
         baseline = 665 - total_height / 2
         for line, line_height in zip(lines, line_heights):
