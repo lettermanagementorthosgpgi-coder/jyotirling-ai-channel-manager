@@ -11,7 +11,7 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parents[1]
 SIZE = (1280, 720)
 TEMPLATES = {
-    "bhagavad_gita": ROOT / "assets" / "master_thumbnail_gita_reference.jpg",
+    "bhagavad_gita": ROOT / "assets" / "master_thumbnail_gita_blank_master.jpg",
     "shiv_puran": ROOT / "assets" / "master_thumbnail_shiv_puran_reference.jpg",
 }
 DEVANAGARI_BOLD = Path("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf")
