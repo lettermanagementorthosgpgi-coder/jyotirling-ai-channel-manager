@@ -6,7 +6,7 @@ on:
   push:
     branches:
       - main
-      - feature/new-upload-preparation-queue
+      - feature/new-upload-preparation-queue\n      - feature/new-user-approved-master-thumbnail
 
 permissions:
   contents: read
