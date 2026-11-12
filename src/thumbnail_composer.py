@@ -127,13 +127,35 @@ def _draw_script_line(draw, xy, text, size, fill, stroke_width, stroke_fill):
         x += width
 
 
-def _script_line_height(draw, line, size, stroke_width):
-    heights = []
+def _script_line_bounds(draw, line, size, stroke_width):
+    """Return the real top/bottom extents relative to the shared text baseline."""
+    bounds = []
     for run in _split_script_runs(line):
         font = _font_for_run(size, run)
-        bounds = draw.textbbox((0, 0), run, font=font, stroke_width=stroke_width)
-        heights.append(bounds[3] - bounds[1])
-    return max(heights, default=size)
+        box = draw.textbbox(
+            (0, 0), run, font=font, anchor="ls", stroke_width=stroke_width
+        )
+        bounds.append(box)
+    return (
+        min((box[1] for box in bounds), default=-size),
+        max((box[3] for box in bounds), default=0),
+    )
+
+
+def _centered_line_baselines(line_bounds, center_y, spacing):
+    """Place one or more mixed-script lines around the true visual center."""
+    if not line_bounds:
+        return []
+    heights = [bottom - top for top, bottom in line_bounds]
+    block_height = sum(heights) + spacing * (len(line_bounds) - 1)
+    baselines = [center_y - block_height / 2 - line_bounds[0][0]]
+    for index in range(1, len(line_bounds)):
+        previous_bottom = line_bounds[index - 1][1]
+        current_top = line_bounds[index][0]
+        baselines.append(
+            baselines[-1] + previous_bottom + spacing - current_top
+        )
+    return baselines
 
 
 def _clean(value):
@@ -178,25 +200,26 @@ def _fit_multiline(draw, text, max_width, max_height, start_size,
     for size in range(start_size, min_size - 1, -2):
         lines = _wrap_line(draw, text, size, max_width)
         spacing = max(1, size // 10)
-        line_heights = []
-        for line in lines:
-            heights = []
-            for run in _split_script_runs(line):
-                font = _font_for_run(size, run)
-                box = draw.textbbox((0, 0), run, font=font, stroke_width=stroke_width)
-                heights.append(box[3] - box[1])
-            line_heights.append(max(heights, default=size))
-        height = sum(line_heights) + spacing * max(0, len(lines) - 1)
+        line_bounds = [
+            _script_line_bounds(draw, line, size, stroke_width) for line in lines
+        ]
+        height = sum(bottom - top for top, bottom in line_bounds) + spacing * max(0, len(lines) - 1)
         widest = max((_run_width(draw, line, size) for line in lines), default=0)
         if len(lines) <= max_lines and widest <= max_width and height <= max_height:
             return None, lines, spacing, size
     lines = _wrap_line(draw, text, min_size, max_width)
-    if len(lines) > max_lines:
+    spacing = max(1, min_size // 10)
+    line_bounds = [
+        _script_line_bounds(draw, line, min_size, stroke_width) for line in lines
+    ]
+    height = sum(bottom - top for top, bottom in line_bounds) + spacing * max(0, len(lines) - 1)
+    widest = max((_run_width(draw, line, min_size) for line in lines), default=0)
+    if len(lines) > max_lines or widest > max_width or height > max_height:
         raise ValueError(
-            f"Thumbnail text is too long for this area at minimum font size {min_size}; "
+            f"Thumbnail text cannot fit this area at minimum font size {min_size}; "
             f"maximum is {max_lines} lines. Please shorten the text."
         )
-    return None, lines, max(1, min_size // 10), min_size
+    return None, lines, spacing, min_size
 
 
 def compose_thumbnail(background_path, output_path, title, video=None, final_package=None):
@@ -233,35 +256,29 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
             )
         font, lines, spacing, size = _fit_multiline(
             draw, hook, max_width=510, max_height=76,
-            start_size=46, min_size=20, max_lines=3, stroke_width=3,
+            start_size=54, min_size=20, max_lines=3, stroke_width=3,
         )
-        line_heights = [_script_line_height(draw, line, size, 3) for line in lines]
-        total_height = sum(line_heights) + spacing * max(0, len(lines) - 1)
-        baseline = 506 - total_height / 2
-        for line, line_height in zip(lines, line_heights):
-            baseline += line_height
+        line_bounds = [_script_line_bounds(draw, line, size, 3) for line in lines]
+        baselines = _centered_line_baselines(line_bounds, 506, spacing)
+        for line, baseline in zip(lines, baselines):
             _draw_script_line(
                 draw, (802, baseline), line, size,
                 fill=(255, 244, 220), stroke_width=3, stroke_fill=(58, 0, 0),
             )
-            baseline += spacing
         title_layout = {"font_size": size, "lines": len(lines)}
 
     if lesson:
         font, lines, spacing, size = _fit_multiline(
             draw, lesson, max_width=690, max_height=68,
-            start_size=34, min_size=18, max_lines=2, stroke_width=2,
+            start_size=40, min_size=18, max_lines=2, stroke_width=2,
         )
-        line_heights = [_script_line_height(draw, line, size, 2) for line in lines]
-        total_height = sum(line_heights) + spacing * max(0, len(lines) - 1)
-        baseline = 665 - total_height / 2
-        for line, line_height in zip(lines, line_heights):
-            baseline += line_height
+        line_bounds = [_script_line_bounds(draw, line, size, 2) for line in lines]
+        baselines = _centered_line_baselines(line_bounds, 665, spacing)
+        for line, baseline in zip(lines, baselines):
             _draw_script_line(
                 draw, (860, baseline), line, size,
                 fill=(0, 35, 190), stroke_width=2, stroke_fill=(255, 224, 30),
             )
-            baseline += spacing
         lesson_layout = {"font_size": size, "lines": len(lines)}
 
     output = Path(output_path)
