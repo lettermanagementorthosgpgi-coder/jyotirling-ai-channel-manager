@@ -26,6 +26,15 @@ on:
         required: true
         type: boolean
         default: false
+      manual_test_book:
+        description: "Create one isolated preview from a fixed master template; no YouTube API, AI generation, upload, or chapter progression"
+        required: true
+        type: choice
+        options:
+          - none
+          - bhagavad_gita
+          - shiv_puran
+        default: none
       thumbnail_tricky_title:
         description: "Optional manual Hindi Tricky Title for the thumbnail"
         required: false
@@ -120,6 +129,7 @@ jobs:
           MANUAL_FROM_DATE: ${{ inputs.from_date }}
           MANUAL_TO_DATE: ${{ inputs.to_date }}
           FORCE_MANUAL_BOOK_MODE: ${{ inputs.manual_book_test }}
+          THUMBNAIL_TEST_BOOK: ${{ inputs.manual_test_book }}
           THUMBNAIL_TRICKY_TITLE: ${{ inputs.thumbnail_tricky_title }}
           THUMBNAIL_LESSON_TEXT: ${{ inputs.thumbnail_lesson_text }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
