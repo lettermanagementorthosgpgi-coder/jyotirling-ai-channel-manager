@@ -26,6 +26,14 @@ on:
         required: true
         type: boolean
         default: false
+      thumbnail_tricky_title:
+        description: "Optional manual Hindi Tricky Title for the thumbnail"
+        required: false
+        type: string
+      thumbnail_lesson_text:
+        description: "Optional manual bottom lesson/chapter text for the thumbnail"
+        required: false
+        type: string
   push:
     branches:
       - feature/new-upload-preparation-queue
@@ -109,6 +117,8 @@ jobs:
           MANUAL_FROM_DATE: ${{ inputs.from_date }}
           MANUAL_TO_DATE: ${{ inputs.to_date }}
           FORCE_MANUAL_BOOK_MODE: ${{ inputs.manual_book_test }}
+          THUMBNAIL_TRICKY_TITLE: ${{ inputs.thumbnail_tricky_title }}
+          THUMBNAIL_LESSON_TEXT: ${{ inputs.thumbnail_lesson_text }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           OPENAI_MODEL: gpt-6-luna
