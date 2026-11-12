@@ -1,4 +1,9 @@
-"""Compose fixed Hindi scripture thumbnails with the original author portrait on the LEFT."""
+"""Render the user-approved red/gold 16:9 scripture thumbnail layout.
+
+Permanent elements: channel header, author portrait/name, decorative frame and
+plaque geometry. Variable elements: scripture book, chapter-grounded hook,
+verified lesson/chapter line, and generated devotional background.
+"""
 from pathlib import Path
 import base64
 import re
@@ -9,6 +14,7 @@ PHOTO = ROOT / "assets" / "author_photo.jpeg"
 PHOTO_B64 = ROOT / "assets" / "author_photo.jpeg.b64"
 DEVANAGARI_BOLD = Path("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf")
 DEVANAGARI_REGULAR = Path("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf")
+SIZE = (1280, 720)
 
 
 def _photo_path():
@@ -31,56 +37,14 @@ def _font(size, bold=True):
     return ImageFont.load_default()
 
 
-def _clean_markup(value):
+def _clean(value):
     value = str(value or "").replace(chr(96), "")
     value = re.sub(r"[\\*_]", "", value)
-    return re.sub(r"\s+", " ", value).strip(" :-—")
+    return re.sub(r"\\s+", " ", value).strip(" :-—“”\"'")
 
 
-def _brief_lines(final_package):
-    return [line.strip() for line in str(final_package or "").splitlines() if line.strip()]
-
-
-def _extract_headline(final_package, fallback):
-    lines = _brief_lines(final_package)
-    labels = ("संक्षिप्त हिंदी headline", "मुख्य headline", "thumbnail headline", "thumbnail text")
-    for i, line in enumerate(lines):
-        if any(label.lower() in line.lower() for label in labels):
-            candidate = re.sub(
-                r"^.*?(?:संक्षिप्त हिंदी headline|मुख्य headline|thumbnail headline|thumbnail text)\s*[:：]",
-                "", line, flags=re.I)
-            candidate = _clean_markup(candidate).strip("“”\"'")
-            if candidate:
-                return candidate
-            if i + 1 < len(lines):
-                return _clean_markup(lines[i + 1]).strip("“”\"'")
-    return ""
-
-
-def _extract_chapter_text(video, final_package):
-    source = video.get("primary_scripture_source") or {}
-    if source.get("status") != "matched":
-        return ""
-    verified_heading = source.get("verified_chapter_heading")
-    if verified_heading:
-        return _clean_markup(verified_heading)
-    return ""
-    lines = _brief_lines(final_package)
-    for line in lines:
-        if "अध्याय-सूचना" in line or "अध्याय पहचान" in line:
-            candidate = re.sub(r"^.*?(?:अध्याय-सूचना(?: एक साथ)?|अध्याय पहचान)\s*[:：]", "", line)
-            candidate = _clean_markup(candidate).strip("“”\"'")
-            if "अध्याय" in candidate and len(candidate) > 5:
-                return candidate
-    for line in lines:
-        match = re.search(r"(अध्याय\s*[0-9०-९]+\s*[—-]\s*.+)", line)
-        if match:
-            return _clean_markup(match.group(1))
-    return f"अध्याय {chapter}" if chapter else ""
-
-
-def _wrap_text(draw, text, font, max_width, max_lines=2):
-    words = str(text).split()
+def _wrap(draw, text, font, max_width, max_lines=2):
+    words = _clean(text).split()
     lines, current = [], ""
     for word in words:
         trial = f"{current} {word}".strip()
@@ -100,134 +64,138 @@ def _wrap_text(draw, text, font, max_width, max_lines=2):
     return lines
 
 
-def _centered(draw, xy, text, font, fill, stroke_width=2, stroke_fill=(18, 10, 3, 255)):
+def _text_center(draw, xy, text, font, fill, stroke=(28, 5, 3, 255), sw=3):
     draw.text(xy, text, font=font, fill=fill, anchor="mm",
-              stroke_width=stroke_width, stroke_fill=stroke_fill)
+              stroke_width=sw, stroke_fill=stroke)
 
 
-def _ornamental_plaque(draw, bounds, fill=(8, 20, 39, 238), outline=(239, 195, 103, 255), width=4):
-    """Compact double-edged plaque with pointed ends, not a plain rectangle."""
+def _red_gold_plaque(draw, bounds, radius=34, fill=(166, 0, 12, 248)):
     x1, y1, x2, y2 = bounds
-    h = y2 - y1
-    inset = min(32, h // 2)
-    points = [(x1 + inset, y1), (x2 - inset, y1), (x2, y1 + h // 2),
-              (x2 - inset, y2), (x1 + inset, y2), (x1, y1 + h // 2)]
-    draw.polygon(points, fill=fill)
-    draw.line(points + [points[0]], fill=outline, width=width, joint="curve")
-    inner = [(x1 + inset + 9, y1 + 7), (x2 - inset - 9, y1 + 7),
-             (x2 - 9, y1 + h // 2), (x2 - inset - 9, y2 - 7),
-             (x1 + inset + 9, y2 - 7), (x1 + 9, y1 + h // 2)]
-    draw.line(inner + [inner[0]], fill=(255, 232, 174, 180), width=2, joint="curve")
+    draw.rounded_rectangle((x1, y1, x2, y2), radius=radius,
+                           fill=fill, outline=(255, 215, 90, 255), width=8)
+    inset = 9
+    draw.rounded_rectangle((x1+inset, y1+inset, x2-inset, y2-inset),
+                           radius=max(8, radius-8), outline=(255, 239, 164, 255), width=3)
+    draw.rounded_rectangle((x1+16, y1+16, x2-16, y2-16),
+                           radius=max(6, radius-14), outline=(255, 145, 20, 220), width=2)
 
 
-def _glow_text(draw, xy, text, font, fill):
-    x, y = xy
-    draw.text((x + 3, y + 5), text, font=font, fill=(0, 0, 0, 170), anchor="mm",
-              stroke_width=7, stroke_fill=(0, 0, 0, 190))
-    draw.text((x, y), text, font=font, fill=fill, anchor="mm",
-              stroke_width=3, stroke_fill=(22, 12, 4, 245))
+def _extract_headline(final_package, fallback):
+    lines = [line.strip() for line in str(final_package or "").splitlines() if line.strip()]
+    labels = ("संक्षिप्त हिंदी headline", "मुख्य headline", "thumbnail headline",
+              "thumbnail text", "tricky topic", "ट्रिकी टॉपिक", "जिज्ञासा")
+    for i, line in enumerate(lines):
+        if any(label.lower() in line.lower() for label in labels):
+            candidate = re.sub(
+                r"^.*?(?:संक्षिप्त हिंदी headline|मुख्य headline|thumbnail headline|thumbnail text|tricky topic|ट्रिकी टॉपिक|जिज्ञासा)\\s*[:：-]\\s*",
+                "", line, flags=re.I)
+            candidate = _clean(candidate)
+            if candidate:
+                return candidate
+            if i + 1 < len(lines):
+                return _clean(lines[i + 1])
+    return _clean(fallback)
+
+
+def _extract_verified_lesson(video):
+    source = video.get("primary_scripture_source") or {}
+    if source.get("status") != "matched" or not source.get("chapter_heading_verified"):
+        return ""
+    heading = _clean(source.get("verified_chapter_heading"))
+    if not heading:
+        return ""
+    section = _clean(video.get("khanda_name"))
+    if section and section not in heading:
+        return f"{section} — {heading}"
+    return heading
 
 
 def compose_thumbnail(background_path, output_path, title, video=None, final_package=None):
     if not background_path or not Path(background_path).is_file():
         raise FileNotFoundError(f"AI-generated thumbnail artwork missing: {background_path}")
     video = video or {}
-    image = ImageOps.fit(Image.open(background_path).convert("RGB"), (1280, 720),
-                         method=Image.Resampling.LANCZOS).convert("RGBA")
-    overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
-
     programme = video.get("programme")
     if programme not in ("shiv_puran", "bhagavad_gita"):
-        raise ValueError("Programme could not be identified; refusing to place an incorrect book label on the thumbnail.")
-    book_label = "भगवद्गीता" if programme == "bhagavad_gita" else "शिव महापुराण"
-    chapter_text = _extract_chapter_text(video, final_package)
-    section_name = video.get("khanda_name")
-    if section_name and section_name not in chapter_text:
-        chapter_text = f"{section_name} — {chapter_text}"
+        raise ValueError("Programme could not be identified; refusing an incorrect scripture label.")
+
+    image = ImageOps.fit(Image.open(background_path).convert("RGB"), SIZE,
+                         method=Image.Resampling.LANCZOS).convert("RGBA")
+    overlay = Image.new("RGBA", SIZE, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+
+    book_label = "श्रीमद्भगवद्गीता" if programme == "bhagavad_gita" else "शिव महापुराण"
     headline = _extract_headline(final_package, title)
     if not headline:
-        raise ValueError("AI SEO package did not provide a usable thumbnail headline.")
+        raise ValueError("AI package did not provide a usable Hindi Tricky Topic.")
+    lesson = _extract_verified_lesson(video)
 
-    # FIXED TOP-MIDDLE identity: two Hindi lines in a compact ornamental plaque.
-    _ornamental_plaque(draw, (340, 6, 940, 104), fill=(7, 19, 39, 225))
-    _centered(draw, (640, 39), "ज्योतिर्लिंग शिवमठ", _font(38), (255, 239, 193, 255))
-    _centered(draw, (640, 73), "बरौली, लखनऊ", _font(23), (255, 255, 255, 255),
-              stroke_width=1, stroke_fill=(20, 12, 4, 255))
+    # Permanent top identity banner (same position and two-line wording on every video).
+    _red_gold_plaque(draw, (278, 5, 1268, 119), radius=54)
+    _text_center(draw, (773, 46), "JYOTIRLING SHIVMATH", _font(46), (255, 245, 45, 255), sw=4)
+    _text_center(draw, (773, 91), "BARAULI LUCKNOW", _font(36), (255, 255, 255, 255), sw=4)
 
-    # Main subject is directly over the artwork, never inside a large dark panel.
-    headline_font = _font(65)
-    headline_lines = _wrap_text(draw, headline, headline_font, 830, max_lines=3)
-    if len(headline_lines) == 1:
-        start_y, step = 330, 86
-    elif len(headline_lines) == 2:
-        start_y, step = 300, 84
-    else:
-        start_y, step = 270, 78
-    for index, line in enumerate(headline_lines):
-        _glow_text(draw, (790, start_y + index * step), line, headline_font,
-                   (255, 225, 133, 255))
+    # Variable scripture title banner: Gita or Shiv Mahapuran.
+    _red_gold_plaque(draw, (380, 130, 1248, 243), radius=48)
+    book_font = _font(65)
+    book_lines = _wrap(draw, book_label, book_font, 790, max_lines=1)
+    _text_center(draw, (814, 188), book_lines[0], book_font, (255, 239, 32, 255), sw=5)
 
-    # Chapter information sits immediately above the bottom book plaque.
-    if chapter_text:
-        chapter_font = _font(30)
-        chapter_lines = _wrap_text(draw, chapter_text, chapter_font, 790, max_lines=2)
-        chapter_start_y = 574 if len(chapter_lines) == 1 else 552
-        for index, line in enumerate(chapter_lines):
-            _glow_text(draw, (790, chapter_start_y + index * 38), line, chapter_font,
-                       (255, 255, 255, 255))
+    # Main variable hook is deliberately in the old large "अध्याय 2" location.
+    hook_font = _font(58)
+    hook_lines = _wrap(draw, headline, hook_font, 735, max_lines=2)
+    hook_y = 465 if len(hook_lines) == 1 else 438
+    for i, line in enumerate(hook_lines):
+        # Semi-transparent dark local shadow only; generated artwork remains visible.
+        draw.text((820+3, hook_y+i*67+4), line, font=hook_font, fill=(0,0,0,160),
+                  anchor="mm", stroke_width=7, stroke_fill=(0,0,0,150))
+        _text_center(draw, (820, hook_y+i*67), line, hook_font,
+                     (255, 239, 215, 255), sw=4)
 
-    # Original author portrait stays on the LEFT, unflipped and unretouched.
+    # Lesson/chapter strip at the bottom is printed only when the source verifies it.
+    if lesson:
+        _red_gold_plaque(draw, (460, 620, 1268, 710), radius=34, fill=(179, 0, 10, 250))
+        lesson_font = _font(34)
+        lesson_lines = _wrap(draw, lesson, lesson_font, 750, max_lines=2)
+        if len(lesson_lines) == 1:
+            _text_center(draw, (864, 665), lesson_lines[0], lesson_font,
+                         (255, 245, 45, 255), sw=3)
+        else:
+            _text_center(draw, (864, 649), lesson_lines[0], _font(29),
+                         (255, 245, 45, 255), sw=3)
+            _text_center(draw, (864, 683), lesson_lines[1], _font(29),
+                         (255, 245, 45, 255), sw=3)
+
+    # Original author photograph remains on the left, unchanged and unflipped.
     portrait = Image.open(_photo_path()).convert("RGB")
-    portrait.thumbnail((238, 338), Image.Resampling.LANCZOS)
-    x_photo, y_photo = 42, 190
-    p = 7
-    draw.rounded_rectangle((x_photo - p, y_photo - p,
-                            x_photo + portrait.width + p, y_photo + portrait.height + p),
-                           radius=22, fill=(245, 205, 105, 255),
-                           outline=(255, 239, 190, 255), width=3)
-
-    # FIXED BOTTOM-MIDDLE book name in Hindi.
-    _ornamental_plaque(draw, (430, 644, 850, 710), fill=(7, 19, 39, 242), width=3)
-    _centered(draw, (640, 677), book_label, _font(36), (255, 239, 193, 255))
-
-    # Paste the exact original portrait after graphics so no overlay touches its pixels.
+    portrait.thumbnail((395, 515), Image.Resampling.LANCZOS)
+    px, py = 18, 48
     image = Image.alpha_composite(image, overlay).convert("RGB")
-    image.paste(portrait, (x_photo, y_photo))
+    image.paste(portrait, (px, py))
 
-    # Author name sits directly below the portrait: plain readable text, NO plaque or box.
+    # Permanent author-name plaque and professional descriptor.
     name_draw = ImageDraw.Draw(image)
-    name = "महंत राजेश कुमार तिवारी ‘रंजन’"
-    name_font = _font(18)
-    name_lines = _wrap_text(name_draw, name, name_font, 270, max_lines=2)
-    name_y = 548 if len(name_lines) == 1 else 541
-    for line in name_lines:
-        # A restrained local shadow keeps the lettering legible without adding a panel.
-        name_draw.text((161 + 2, name_y + 3), line, font=name_font,
-                       fill=(0, 0, 0, 190), anchor="mm",
-                       stroke_width=3, stroke_fill=(0, 0, 0, 150))
-        _centered(name_draw, (161, name_y), line, name_font,
-                  (255, 248, 226, 255), stroke_width=1,
-                  stroke_fill=(24, 15, 8, 255))
-        name_y += 25
+    _red_gold_plaque(name_draw, (12, 570, 448, 680), radius=30, fill=(166, 0, 12, 250))
+    _text_center(name_draw, (230, 612), "Mahant Rajesh Kumar", _font(29), (255,255,255,255), sw=3)
+    _text_center(name_draw, (230, 645), "Tiwari “Ranjan”", _font(29), (255,255,255,255), sw=3)
+    _text_center(name_draw, (230, 690), "लेखक • कवि • योगाचार्य • आध्यात्मिक विद्वान",
+                 _font(17), (255,255,255,255), sw=2)
 
     output = Path(output_path)
     output.parent.mkdir(parents=True, exist_ok=True)
     image.save(output, "PNG", optimize=True)
     return {
         "file": str(output),
+        "master_template": "user_approved_red_gold_scripture_layout_v1",
+        "dimensions": "1280x720",
         "author_photo_included": True,
         "author_photo_source": "assets/author_photo.jpeg.b64",
         "author_photo_position": "left",
         "author_photo_unchanged": True,
-        "master_template": "fixed_hindi_scripture_branding_v3_no_author_plaque",
-        "programme_template": "fixed_hindi_scripture_branding_v2",
-        "dimensions": "1280x720",
-        "channel_header": "ज्योतिर्लिंग शिवमठ | बरौली, लखनऊ",
+        "channel_header": "JYOTIRLING SHIVMATH / BARAULI LUCKNOW",
         "programme_label": book_label,
-        "chapter_text": chapter_text or None,
-        "chapter_verified": bool(video.get("primary_scripture_source", {}).get("chapter_heading_verified")),
         "thumbnail_headline": headline,
-        "author_name": "महंत राजेश कुमार तिवारी ‘रंजन’",
-        "background_overlay": "localized_text_shadow_only",
+        "chapter_text": lesson or None,
+        "chapter_verified": bool(lesson),
+        "author_name": "Mahant Rajesh Kumar Tiwari “Ranjan”",
+        "layout_policy": "fixed identity and plaques; only book, hook, verified lesson and devotional artwork vary"
     }
