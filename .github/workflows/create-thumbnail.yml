@@ -1,0 +1,62 @@
+name: Create Thumbnail
+
+on:
+  workflow_dispatch:
+    inputs:
+      book:
+        description: "Choose the permanent master thumbnail"
+        required: true
+        type: choice
+        options:
+          - bhagavad_gita
+          - shiv_puran
+      tricky_title:
+        description: "Tricky Title (Hindi, English, or mixed)"
+        required: false
+        type: string
+      subject:
+        description: "Subject / chapter text (Hindi, English, or mixed)"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  create-thumbnail:
+    name: Create preview from approved master
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install image and Hindi font dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fonts-noto-core fonts-dejavu-core fontconfig libraqm0 libharfbuzz0b libfribidi0
+          fc-cache -f
+          pip install -r requirements.txt
+          python -c "from PIL import features; assert features.check('raqm'), 'Pillow RAQM support is required'"
+
+      - name: Create thumbnail preview
+        env:
+          THUMBNAIL_TEST_BOOK: ${{ inputs.book }}
+          THUMBNAIL_TRICKY_TITLE: ${{ inputs.tricky_title }}
+          THUMBNAIL_LESSON_TEXT: ${{ inputs.subject }}
+        run: python main.py
+
+      - name: Provide the finished thumbnail
+        uses: actions/upload-artifact@v4
+        with:
+          name: created-thumbnail
+          path: |
+            thumbnails/manual_*_thumbnail.png
+            reports/thumbnail_preview_*.json
+          if-no-files-found: error
+          retention-days: 7
