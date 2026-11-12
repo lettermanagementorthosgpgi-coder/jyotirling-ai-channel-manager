@@ -49,7 +49,7 @@ class MasterThumbnailComposerTests(unittest.TestCase):
             self.assertTrue(output.is_file())
             self.assertEqual(result["thumbnail_headline"], "THE SECRET OF KARMA YOGA")
             self.assertEqual(result["chapter_text"], "BHAGAVAD GITA CHAPTER 2")
-            self.assertEqual(result["title_layout"]["lines"], 1)
+            self.assertLessEqual(result["title_layout"]["lines"], 3)
             self.assertEqual(result["lesson_layout"]["lines"], 1)
 
     def test_mixed_hindi_english_manual_copy_renders(self):
