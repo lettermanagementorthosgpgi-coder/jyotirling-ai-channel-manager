@@ -35,6 +35,38 @@ class MasterThumbnailComposerTests(unittest.TestCase):
             self.assertEqual(result["chapter_text"], "पंचम खंड - अध्याय 13")
             self.assertFalse(result["youtube_uploaded"])
 
+    def test_english_only_manual_copy_uses_latin_font_and_renders(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "english.png"
+            with patch.dict(os.environ, {
+                "THUMBNAIL_TRICKY_TITLE": "THE SECRET OF KARMA YOGA",
+                "THUMBNAIL_LESSON_TEXT": "BHAGAVAD GITA CHAPTER 2",
+            }):
+                result = compose_thumbnail(
+                    None, output, "ignored",
+                    video={"programme": "bhagavad_gita"},
+                )
+            self.assertTrue(output.is_file())
+            self.assertEqual(result["thumbnail_headline"], "THE SECRET OF KARMA YOGA")
+            self.assertEqual(result["chapter_text"], "BHAGAVAD GITA CHAPTER 2")
+            self.assertEqual(result["title_layout"]["lines"], 1)
+            self.assertEqual(result["lesson_layout"]["lines"], 1)
+
+    def test_mixed_hindi_english_manual_copy_renders(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "mixed.png"
+            with patch.dict(os.environ, {
+                "THUMBNAIL_TRICKY_TITLE": "कर्म योग का SECRET",
+                "THUMBNAIL_LESSON_TEXT": "अध्याय 2 - CHAPTER TWO",
+            }):
+                result = compose_thumbnail(
+                    None, output, "ignored",
+                    video={"programme": "bhagavad_gita"},
+                )
+            self.assertTrue(output.is_file())
+            self.assertEqual(result["thumbnail_headline"], "कर्म योग का SECRET")
+            self.assertEqual(result["chapter_text"], "अध्याय 2 - CHAPTER TWO")
+
     def test_composer_uses_fixed_gita_template(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "gita.png"
