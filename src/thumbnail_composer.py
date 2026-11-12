@@ -39,8 +39,8 @@ def _font(size, bold=True):
 
 def _clean(value):
     value = str(value or "").replace(chr(96), "")
-    value = re.sub(r"[\\*_]", "", value)
-    return re.sub(r"\\s+", " ", value).strip(" :-—“”\"'")
+    value = re.sub(r"[\*_]", "", value)
+    return re.sub(r"\s+", " ", value).strip(" :-—“”\"'")
 
 
 def _wrap(draw, text, font, max_width, max_lines=2):
@@ -87,7 +87,7 @@ def _extract_headline(final_package, fallback):
     for i, line in enumerate(lines):
         if any(label.lower() in line.lower() for label in labels):
             candidate = re.sub(
-                r"^.*?(?:संक्षिप्त हिंदी headline|मुख्य headline|thumbnail headline|thumbnail text|tricky topic|ट्रिकी टॉपिक|जिज्ञासा)\\s*[:：-]\\s*",
+                r"^.*?(?:संक्षिप्त हिंदी headline|मुख्य headline|thumbnail headline|thumbnail text|tricky topic|ट्रिकी टॉपिक|जिज्ञासा)\s*[:：-]\s*",
                 "", line, flags=re.I)
             candidate = _clean(candidate)
             if candidate:
