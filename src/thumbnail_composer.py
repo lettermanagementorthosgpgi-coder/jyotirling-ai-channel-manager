@@ -99,7 +99,7 @@ def _fit_multiline(draw, text, max_width, max_height, start_size,
         lines = _wrap_line(draw, text, font, max_width)
         spacing = max(1, size // 10)
         bounds = draw.multiline_textbbox(
-            (0, 0), "\\n".join(lines), font=font, spacing=spacing,
+            (0, 0), "\n".join(lines), font=font, spacing=spacing,
             align="center", stroke_width=stroke_width,
         )
         height = bounds[3] - bounds[1]
@@ -155,7 +155,7 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
             start_size=46, min_size=20, max_lines=3, stroke_width=3,
         )
         draw.multiline_text(
-            (802, 506), "\\n".join(lines), font=font,
+            (802, 506), "\n".join(lines), font=font,
             fill=(255, 244, 220), anchor="mm", align="center",
             spacing=spacing, stroke_width=3, stroke_fill=(58, 0, 0),
         )
@@ -167,7 +167,7 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
             start_size=34, min_size=18, max_lines=2, stroke_width=2,
         )
         draw.multiline_text(
-            (860, 665), "\\n".join(lines), font=font,
+            (860, 665), "\n".join(lines), font=font,
             fill=(0, 35, 190), anchor="mm", align="center",
             spacing=spacing, stroke_width=2, stroke_fill=(255, 224, 30),
         )
