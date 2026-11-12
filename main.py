@@ -23,6 +23,47 @@ def main():
     report_dir = ROOT / "reports"
     report_dir.mkdir(exist_ok=True)
     stamp = datetime.now().astimezone().strftime("%Y%m%d_%H%M%S")
+
+    # Isolated master-template preview: deliberately bypass YouTube, AI, feed
+    # progression, metadata, uploads, and publication.
+    test_book = os.getenv("THUMBNAIL_TEST_BOOK", "none").strip()
+    if test_book in ("bhagavad_gita", "shiv_puran"):
+        programme_labels = {
+            "bhagavad_gita": "श्रीमद्भगवद्गीता",
+            "shiv_puran": "शिव महापुराण",
+        }
+        video = {"programme": test_book}
+        preview_path = ROOT / "thumbnails" / f"manual_{test_book}_{stamp}_thumbnail.png"
+        composition = compose_thumbnail(
+            None, preview_path,
+            os.getenv("THUMBNAIL_TRICKY_TITLE", ""),
+            video=video,
+        )
+        report = {
+            "report_type": "isolated_master_thumbnail_preview",
+            "status": "success",
+            "book": programme_labels[test_book],
+            "programme": test_book,
+            "thumbnail": str(preview_path.relative_to(ROOT)),
+            "composition": composition,
+            "safety": {
+                "youtube_api_called": False,
+                "ai_or_background_generation_called": False,
+                "chapter_progression_read_or_advanced": False,
+                "youtube_metadata_changed": False,
+                "thumbnail_uploaded": False,
+                "published": False,
+            },
+        }
+        report_path = report_dir / f"thumbnail_preview_{test_book}_{stamp}.json"
+        report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+        print("ISOLATED MASTER THUMBNAIL PREVIEW: SUCCESS")
+        print(f"BOOK: {programme_labels[test_book]}")
+        print(f"THUMBNAIL: {preview_path}")
+        print(f"REPORT: {report_path}")
+        print("Safety: no YouTube API, AI generation, chapter progression, upload, or publication.")
+        return
+
     daily_programme_feeds = build_daily_programme_feeds(config)
     print("BOOK-BASED DAILY PROGRAMME FEEDS: " + json.dumps(daily_programme_feeds, ensure_ascii=False))
     manual_from = os.getenv("MANUAL_FROM_DATE", "").strip()
