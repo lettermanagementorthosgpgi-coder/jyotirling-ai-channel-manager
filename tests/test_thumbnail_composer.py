@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from PIL import Image
 
-from src.thumbnail_composer import compose_thumbnail, TEMPLATES
+from src.thumbnail_composer import compose_thumbnail, TEMPLATES, _split_script_runs, _font_for_run
 
 
 class MasterThumbnailComposerTests(unittest.TestCase):
@@ -66,6 +66,15 @@ class MasterThumbnailComposerTests(unittest.TestCase):
             self.assertTrue(output.is_file())
             self.assertEqual(result["thumbnail_headline"], "कर्म योग का SECRET")
             self.assertEqual(result["chapter_text"], "अध्याय 2 - CHAPTER TWO")
+
+    def test_mixed_script_is_split_into_independent_font_runs(self):
+        self.assertEqual(
+            _split_script_runs("कर्म योग SECRET 123"),
+            ["कर्म", " ", "योग", " SECRET 123"],
+        )
+        hindi_font = _font_for_run(28, "कर्म योग")
+        latin_font = _font_for_run(28, "SECRET 123")
+        self.assertNotEqual(hindi_font.path, latin_font.path)
 
     def test_composer_uses_fixed_gita_template(self):
         with tempfile.TemporaryDirectory() as tmp:
