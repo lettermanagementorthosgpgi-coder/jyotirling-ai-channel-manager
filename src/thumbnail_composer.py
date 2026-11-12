@@ -31,7 +31,7 @@ def _font(size):
 def _clean(value):
     value = str(value or "").replace("`", "")
     value = re.sub(r"[\\*_]", "", value)
-    return re.sub(r"\\s+", " ", value).strip()
+    return re.sub(r"\s+", " ", value).strip()
 
 
 def _fit_font(draw, text, max_width, start_size, min_size=22):
