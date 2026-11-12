@@ -75,7 +75,7 @@ def _font(size, text=""):
         )
     # Use a dedicated Latin font for English-only copy. The Devanagari font is
     # retained for Hindi and mixed-script copy so Hindi conjunct shaping stays correct.
-    has_devanagari = any("\\u0900" <= char <= "\\u097f" for char in text)
+    has_devanagari = any("\u0900" <= char <= "\u097f" for char in text)
     font_path = _find_text_font() if has_devanagari else _find_latin_font()
     return ImageFont.truetype(
         str(font_path), size, layout_engine=ImageFont.Layout.RAQM
