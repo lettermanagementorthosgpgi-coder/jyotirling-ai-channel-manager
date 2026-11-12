@@ -348,25 +348,6 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
                         "composition_error": f"{type(exc).__name__}: {exc}"[:500]
                     }
 
-            if thumbnail_result.get("file") and Path(thumbnail_result["file"]).exists():
-                try:
-                    composed_path = thumbnail_dir / f"{_safe_id(vid)}_thumbnail.png"
-                    composition = compose_thumbnail(
-                        thumbnail_result["file"], composed_path,
-                        item.get("source_title") or item.get("title") or "विशेष आध्यात्मिक प्रवचन",
-                        video=item, final_package=stages[ROLES[1][0]]["output"])
-                    thumbnail_result.update(composition)
-                    thumbnail_result["status"] = "thumbnail_ready_for_user_review"
-                    thumbnail_result["note"] = (
-                        "The exact channel header, programme label, chapter text, headline and "
-                        "supplied original portrait are composed separately for human review.")
-                except Exception as exc:
-                    thumbnail_result = {
-                        "status": "background_ready_composition_failed",
-                        "background_file": thumbnail_result.get("file"),
-                        "composition_error": f"{type(exc).__name__}: {exc}"[:500]
-                    }
-
             if thumbnail_result.get("provider"):
                 thumbnail_result["image_generation"] = {
                     "provider": thumbnail_result.get("provider"),
