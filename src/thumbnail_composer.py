@@ -31,6 +31,7 @@ def _font(size):
 def _clean(value):
     value = str(value or "").replace("`", "")
     value = re.sub(r"[\\*_]", "", value)
+    value = value.replace("•", " - ").replace("·", " - ")
     return re.sub(r"\s+", " ", value).strip()
 
 
@@ -63,13 +64,18 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
     # Draw only user-entered copy. Empty values leave the template untouched.
     # The artwork, portrait, author plaque, book name and channel header are never regenerated.
     if hook:
-        font = _fit_font(draw, hook, 510, 48, 24)
-        draw.text((820, 500), hook, font=font, fill=(255, 244, 220),
-                  anchor="mm", stroke_width=4, stroke_fill=(58, 0, 0))
+        if programme == "shiv_puran":
+            draw.rounded_rectangle((520, 462, 1085, 550), radius=22,
+                                   fill=(91, 0, 12), outline=(255, 205, 55), width=5)
+            draw.rounded_rectangle((528, 470, 1077, 542), radius=17,
+                                   outline=(255, 236, 145), width=2)
+        font = _fit_font(draw, hook, 510, 46, 24)
+        draw.text((802, 506), hook, font=font, fill=(255, 244, 220),
+                  anchor="mm", stroke_width=3, stroke_fill=(58, 0, 0))
 
     if lesson:
         font = _fit_font(draw, lesson, 690, 34, 20)
-        draw.text((865, 665), lesson, font=font, fill=(0, 35, 190),
+        draw.text((860, 665), lesson, font=font, fill=(0, 35, 190),
                   anchor="mm", stroke_width=2, stroke_fill=(255, 224, 30))
 
     output = Path(output_path)
