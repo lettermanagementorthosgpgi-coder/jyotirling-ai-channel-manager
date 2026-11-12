@@ -42,7 +42,7 @@ class MasterThumbnailComposerTests(unittest.TestCase):
                 None, output, "ignored",
                 video={"programme": "bhagavad_gita"},
             )
-            self.assertEqual(result["master_template"], "master_thumbnail_gita_reference.jpg")
+            self.assertEqual(result["master_template"], "master_thumbnail_gita_blank_master.jpg")
             self.assertIsNone(result["thumbnail_headline"])
             self.assertIsNone(result["chapter_text"])
 
