@@ -32,7 +32,7 @@ class MasterThumbnailComposerTests(unittest.TestCase):
             self.assertTrue(output.is_file())
             self.assertEqual(result["master_template"], "master_thumbnail_shiv_puran_reference.jpg")
             self.assertEqual(result["thumbnail_headline"], "शिवतत्त्व का रहस्य")
-            self.assertEqual(result["chapter_text"], "पंचम खंड • अध्याय 13")
+            self.assertEqual(result["chapter_text"], "पंचम खंड - अध्याय 13")
             self.assertFalse(result["youtube_uploaded"])
 
     def test_composer_uses_fixed_gita_template(self):
