@@ -68,18 +68,63 @@ def _find_latin_font():
 
 
 def _font(size, text=""):
+    """Compatibility helper: choose the script-specific font for a whole string."""
     if not features.check("raqm"):
         raise RuntimeError(
             "Pillow was built without libraqm; Hindi shaping is unavailable. "
             "Install libraqm, harfbuzz and fribidi, and use a Pillow build with RAQM."
         )
-    # Use a dedicated Latin font for English-only copy. The Devanagari font is
-    # retained for Hindi and mixed-script copy so Hindi conjunct shaping stays correct.
     has_devanagari = any("\u0900" <= char <= "\u097f" for char in text)
     font_path = _find_text_font() if has_devanagari else _find_latin_font()
-    return ImageFont.truetype(
-        str(font_path), size, layout_engine=ImageFont.Layout.RAQM
+    return ImageFont.truetype(str(font_path), size, layout_engine=ImageFont.Layout.RAQM)
+
+
+def _font_for_run(size, run):
+    """Use separate font files for Devanagari and Latin runs in mixed copy."""
+    has_devanagari = any("\u0900" <= char <= "\u097f" for char in run)
+    path = _find_text_font() if has_devanagari else _find_latin_font()
+    return ImageFont.truetype(str(path), size, layout_engine=ImageFont.Layout.RAQM)
+
+
+def _split_script_runs(text):
+    """Split without changing text so Latin glyphs never depend on Devanagari coverage."""
+    if not text:
+        return [""]
+    runs = []
+    current = text[0]
+    current_is_devanagari = "\u0900" <= text[0] <= "\u097f"
+    for char in text[1:]:
+        is_devanagari = "\u0900" <= char <= "\u097f"
+        if is_devanagari == current_is_devanagari:
+            current += char
+        else:
+            runs.append(current)
+            current = char
+            current_is_devanagari = is_devanagari
+    runs.append(current)
+    return runs
+
+
+def _run_width(draw, text, size):
+    return sum(
+        draw.textlength(run, font=_font_for_run(size, run))
+        for run in _split_script_runs(text)
     )
+
+
+def _draw_script_line(draw, xy, text, size, fill, stroke_width, stroke_fill):
+    """Draw mixed Hindi/Latin runs centered on one shared baseline."""
+    x, baseline = xy
+    runs = _split_script_runs(text)
+    fonts = [_font_for_run(size, run) for run in runs]
+    widths = [draw.textlength(run, font=font) for run, font in zip(runs, fonts)]
+    x -= sum(widths) / 2
+    for run, font, width in zip(runs, fonts, widths):
+        draw.text(
+            (x, baseline), run, font=font, fill=fill, anchor="ls",
+            stroke_width=stroke_width, stroke_fill=stroke_fill,
+        )
+        x += width
 
 
 def _clean(value):
@@ -89,26 +134,25 @@ def _clean(value):
     return re.sub(r"\s+", " ", value).strip()
 
 
-def _wrap_line(draw, text, font, max_width):
-    """Greedy word wrapping, splitting an unusually long unbroken word safely."""
+def _wrap_line(draw, text, size, max_width):
+    """Greedy word wrapping measured with per-script font fallback."""
     words = text.split()
     lines = []
     current = ""
     for word in words:
         candidate = f"{current} {word}".strip()
-        if draw.textlength(candidate, font=font) <= max_width:
+        if _run_width(draw, candidate, size) <= max_width:
             current = candidate
             continue
         if current:
             lines.append(current)
             current = ""
-        if draw.textlength(word, font=font) <= max_width:
+        if _run_width(draw, word, size) <= max_width:
             current = word
             continue
-        # Handle long URLs/compound words without allowing overflow.
         piece = ""
         for char in word:
-            if piece and draw.textlength(piece + char, font=font) > max_width:
+            if piece and _run_width(draw, piece + char, size) > max_width:
                 lines.append(piece)
                 piece = char
             else:
@@ -121,29 +165,29 @@ def _wrap_line(draw, text, font, max_width):
 
 def _fit_multiline(draw, text, max_width, max_height, start_size,
                    min_size=18, max_lines=3, stroke_width=2):
-    """Shrink font and wrap to fit a fixed text area; return font and lines."""
+    """Fit text using separate Hindi and Latin fonts within each line."""
     for size in range(start_size, min_size - 1, -2):
-        font = _font(size, text)
-        lines = _wrap_line(draw, text, font, max_width)
+        lines = _wrap_line(draw, text, size, max_width)
         spacing = max(1, size // 10)
-        bounds = draw.multiline_textbbox(
-            (0, 0), "\n".join(lines), font=font, spacing=spacing,
-            align="center", stroke_width=stroke_width,
-        )
-        height = bounds[3] - bounds[1]
-        widest = max((draw.textlength(line, font=font) for line in lines), default=0)
+        line_heights = []
+        for line in lines:
+            heights = []
+            for run in _split_script_runs(line):
+                font = _font_for_run(size, run)
+                box = draw.textbbox((0, 0), run, font=font, stroke_width=stroke_width)
+                heights.append(box[3] - box[1])
+            line_heights.append(max(heights, default=size))
+        height = sum(line_heights) + spacing * max(0, len(lines) - 1)
+        widest = max((_run_width(draw, line, size) for line in lines), default=0)
         if len(lines) <= max_lines and widest <= max_width and height <= max_height:
-            return font, lines, spacing, size
-    # If still too long, preserve every word but return a clear overflow error
-    # instead of silently clipping or shrinking to an unreadable size.
-    font = _font(min_size, text)
-    lines = _wrap_line(draw, text, font, max_width)
+            return None, lines, spacing, size
+    lines = _wrap_line(draw, text, min_size, max_width)
     if len(lines) > max_lines:
         raise ValueError(
             f"Thumbnail text is too long for this area at minimum font size {min_size}; "
             f"maximum is {max_lines} lines. Please shorten the text."
         )
-    return font, lines, max(1, min_size // 10), min_size
+    return None, lines, max(1, min_size // 10), min_size
 
 
 def compose_thumbnail(background_path, output_path, title, video=None, final_package=None):
@@ -182,11 +226,21 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
             draw, hook, max_width=510, max_height=76,
             start_size=46, min_size=20, max_lines=3, stroke_width=3,
         )
-        draw.multiline_text(
-            (802, 506), "\n".join(lines), font=font,
-            fill=(255, 244, 220), anchor="mm", align="center",
-            spacing=spacing, stroke_width=3, stroke_fill=(58, 0, 0),
-        )
+        line_heights = [
+            max((draw.textbbox((0, 0), run, font=_font_for_run(size, run), stroke_width=3)[3]
+                 - draw.textbbox((0, 0), run, font=_font_for_run(size, run), stroke_width=3)[1])
+                for run in _split_script_runs(line)), default=size)
+            for line in lines
+        ]
+        total_height = sum(line_heights) + spacing * max(0, len(lines) - 1)
+        baseline = 506 - total_height / 2
+        for line, line_height in zip(lines, line_heights):
+            baseline += line_height
+            _draw_script_line(
+                draw, (802, baseline), line, size,
+                fill=(255, 244, 220), stroke_width=3, stroke_fill=(58, 0, 0),
+            )
+            baseline += spacing
         title_layout = {"font_size": size, "lines": len(lines)}
 
     if lesson:
@@ -194,11 +248,21 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
             draw, lesson, max_width=690, max_height=68,
             start_size=34, min_size=18, max_lines=2, stroke_width=2,
         )
-        draw.multiline_text(
-            (860, 665), "\n".join(lines), font=font,
-            fill=(0, 35, 190), anchor="mm", align="center",
-            spacing=spacing, stroke_width=2, stroke_fill=(255, 224, 30),
-        )
+        line_heights = [
+            max((draw.textbbox((0, 0), run, font=_font_for_run(size, run), stroke_width=2)[3]
+                 - draw.textbbox((0, 0), run, font=_font_for_run(size, run), stroke_width=2)[1])
+                for run in _split_script_runs(line)), default=size)
+            for line in lines
+        ]
+        total_height = sum(line_heights) + spacing * max(0, len(lines) - 1)
+        baseline = 665 - total_height / 2
+        for line, line_height in zip(lines, line_heights):
+            baseline += line_height
+            _draw_script_line(
+                draw, (860, baseline), line, size,
+                fill=(0, 35, 190), stroke_width=2, stroke_fill=(255, 224, 30),
+            )
+            baseline += spacing
         lesson_layout = {"font_size": size, "lines": len(lines)}
 
     output = Path(output_path)
