@@ -330,49 +330,23 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
             thumbnail_result = {"status": "not_attempted"}
             if complete:
                 thumbnail_dir.mkdir(parents=True, exist_ok=True)
-                image_path = thumbnail_dir / f"{_safe_id(vid)}_background.png"
-                if image_path.exists() and image_path.stat().st_size > 0:
-                    thumbnail_result = {"status": "background_ready", "file": str(image_path)}
-                else:
-                    final_package = stages[ROLES[1][0]]["output"]
-                    cross_review = stages[ROLES[2][0]]["output"]
-                    thumbnail_brief = final_package + "\n\nCross-review corrections:\n" + cross_review
-                    # Cloudflare FLUX is the primary thumbnail-background generator.
-                    # Keep other configured image providers as fallbacks.
-                    image_order = (["cloudflare"] if "cloudflare" in providers else []) + [
-                        p for p in providers if p != "cloudflare"
-                    ]
-                    image_errors = []
-                    image_attempts = []
-                    for provider in image_order:
-                        try:
-                            image_bytes, image_model = generate_thumbnail_background(
-                                provider, _thumbnail_prompt(item, thumbnail_brief))
-                            if not image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
-                                raise ValueError("Image provider did not return a PNG file")
-                            image_path.write_bytes(image_bytes)
-                            image_attempts.append({
-                                "provider": provider, "model": image_model,
-                                "status": "success"
-                            })
-                            thumbnail_result = {
-                                "status": "background_ready_needs_brand_composition",
-                                "file": str(image_path),
-                                "provider": provider,
-                                "model": image_model,
-                                "provider_attempts": image_attempts,
-                                "fallback_errors": image_errors,
-                                "note": "AI-generated background; original author photo and channel branding are composited separately."
-                            }
-                            break
-                        except Exception as exc:
-                            failure = {"provider": provider, "status": "failed",
-                                        "error": f"{type(exc).__name__}: {exc}"[:500]}
-                            image_errors.append(failure)
-                            image_attempts.append(failure)
-                    if thumbnail_result["status"] == "not_attempted":
-                        thumbnail_result = {"status": "image_generation_pending",
-                                             "provider_attempts": image_attempts}
+                final_package = stages[ROLES[1][0]]["output"]
+                composed_path = thumbnail_dir / f"{_safe_id(vid)}_thumbnail.png"
+                try:
+                    composition = compose_thumbnail(
+                        None, composed_path,
+                        item.get("source_title") or item.get("title") or "विशेष आध्यात्मिक प्रवचन",
+                        video=item, final_package=final_package)
+                    thumbnail_result = {
+                        **composition,
+                        "status": "thumbnail_ready_for_user_review",
+                        "note": "Rendered from the fixed user-approved book-specific master image. Only manually supplied Tricky Title and lesson text are overlaid; no AI background is generated."
+                    }
+                except Exception as exc:
+                    thumbnail_result = {
+                        "status": "master_template_composition_failed",
+                        "composition_error": f"{type(exc).__name__}: {exc}"[:500]
+                    }
 
             if thumbnail_result.get("file") and Path(thumbnail_result["file"]).exists():
                 try:
