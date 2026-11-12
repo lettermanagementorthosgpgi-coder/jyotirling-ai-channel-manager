@@ -15,9 +15,9 @@ ROLES = [
     ("AI-1_data_analysis",
      "Evidence priority: use the full transcript first when supplied. If no transcript is supplied, inspect primary_scripture_source. When its status is matched, use only its page-numbered excerpts as primary-scripture evidence, clearly label the result scripture-reference-based (Hindi translation/explanatory text), and cite the PDF page numbers. Distinguish original Sanskrit verses from Hindi translation and editor/commentary; never attribute commentary as verbatim divine speech. Use title/description only for identifying the chapter/topic, not as a substitute for scripture evidence. If no transcript and no matched scripture source, do not draft until the 48-hour wait has elapsed; only then use title/description and label the result description-based. Never invent metrics or spoken content."),
     ("AI-2_youtube_seo_and_thumbnail_brief",
-     "Use the full transcript as primary evidence when available. If absent, use a matched primary_scripture_source pack as the evidence base, cite its PDF pages, and clearly label claims as based on Hindi scripture translation/explanatory text rather than a transcript. Use the title/description only to identify the likely chapter/topic. If neither transcript nor matched scripture source is available, this stage should only run after the 48-hour wait and must be labelled description-based. Prepare YouTube SEO: 3 title options, a complete Hindi-first description accurately summarizing the source, relevant tags, hashtags, a concise Hindi thumbnail headline and a chapter-grounded visual concept. The thumbnail uses a FIXED layout: original supplied author photo always on the LEFT, unflipped and unretouched; TOP-MIDDLE ornamental designer plaque with two Hindi lines exactly 'ज्योतिर्लिंग शिवमठ' and 'बरौली, लखनऊ'; BOTTOM-MIDDLE ornamental designer plaque with exactly one Hindi book label, 'शिव महापुराण' for Shiv Puran or 'भगवद्गीता' for Bhagavad Gita; verified chapter number/name immediately ABOVE the bottom plaque; the main chapter-specific subject headline is large and directly over the background artwork, in the centre/right, with bright contrasting Hindi lettering, dark outline and localized shadow. Do not use English branding, a large dark central panel, or a full-frame dark overlay. Keep the background image bright and visible. Only the background scene, headline, chapter text and relevant book label vary; all fixed positions and branding remain unchanged."),
+     "Use the full transcript as primary evidence when available. If absent, use a matched primary_scripture_source pack as the evidence base, cite its PDF pages, and clearly label claims as based on Hindi scripture translation/explanatory text rather than a transcript. Use the title/description only to identify the likely chapter/topic. If neither transcript nor matched scripture source is available, this stage should only run after the 48-hour wait and must be labelled description-based. Prepare YouTube SEO: 3 title options, a complete Hindi-first description accurately summarizing the source, relevant tags, hashtags, a concise Hindi thumbnail headline and a chapter-grounded visual concept. The thumbnail MUST follow the user-approved red/gold 1280x720 master layout: keep the original supplied author portrait large on the LEFT, unchanged and unretouched; top red/gold plaque says exactly 'JYOTIRLING SHIVMATH' and 'BARAULI LUCKNOW'; the second red/gold plaque says 'श्रीमद्भगवद्गीता' for Gita or 'शिव महापुराण' for Shiv Puran; replace the large central 'अध्याय 2' placeholder with a short curiosity-driving Hindi TRICKY TOPIC (1–2 lines); bottom-right red/gold strip contains the verified lesson/chapter/verse range; bottom-left author plaque keeps 'Mahant Rajesh Kumar Tiwari “Ranjan”' and Hindi professional descriptor. Do not place chapter number in the central hook. Never invent a chapter title; if unverified, omit it. Keep all permanent positions, portrait, name and red/gold ornamental styling fixed. Only book title, central tricky topic, verified bottom lesson line and chapter-specific devotional background may vary."),
     ("AI-3_cross_review",
-     "Verify claims against the transcript when supplied; otherwise verify against the matched primary_scripture_source excerpts and cite their PDF pages. Distinguish Sanskrit verses, Hindi translation, and commentary; never attribute commentary to a deity as verbatim speech. If neither source exists after the 48-hour wait, verify only against title/description and label the result description-based. State clearly which evidence basis was used. Never claim a transcript was read when unavailable. Correct unsupported claims, policy risks, factual mistakes, keyword stuffing and weak packaging. Verify that the thumbnail follows the fixed Hindi design exactly: unchanged original author photo LEFT; top-middle two-line ornamental plaque 'ज्योतिर्लिंग शिवमठ' / 'बरौली, लखनऊ'; bottom-middle ornamental plaque with 'शिव महापुराण' or 'भगवद्गीता'; verified chapter line just above the bottom plaque; large chapter-specific Hindi subject over the bright background, centre/right, using high-contrast text with localized outline/shadow. Reject English branding, a right-side portrait, oversized dark panels, or an overall darkened background. Return the final corrected package and a short change log.")
+     "Verify claims against the transcript when supplied; otherwise verify against the matched primary_scripture_source excerpts and cite their PDF pages. Distinguish Sanskrit verses, Hindi translation, and commentary; never attribute commentary to a deity as verbatim speech. If neither source exists after the 48-hour wait, verify only against title/description and label the result description-based. State clearly which evidence basis was used. Never claim a transcript was read when unavailable. Correct unsupported claims, policy risks, factual mistakes, keyword stuffing and weak packaging. Verify that the thumbnail follows the user-approved red/gold 1280x720 design: original author portrait large LEFT; top plaque exactly 'JYOTIRLING SHIVMATH' / 'BARAULI LUCKNOW'; second plaque says 'श्रीमद्भगवद्गीता' or 'शिव महापुराण' according to programme; central large text is a 1–2-line curiosity-driving Hindi TRICKY TOPIC, not an अध्याय number; bottom-right strip carries only a PDF-verified lesson/chapter/verse range; bottom-left author plaque preserves 'Mahant Rajesh Kumar Tiwari “Ranjan”' and Hindi professional descriptor. If chapter heading is not verified from the original source, omit the lesson heading rather than guessing. Reject layout changes, portrait movement, English book labels, or unreadable text. Return the final corrected package and a short change log.")
 ]
 
 
@@ -107,16 +107,15 @@ def _prompt(role_instruction, video, previous, transcript):
         "primary_scripture_source": video.get("primary_scripture_source"),
         "previous_stage_outputs": previous,
         "thumbnail_brand_rules": [
-            "FIXED 16:9 MASTER LAYOUT; do not redesign or move permanent elements.",
-            "Original supplied author photograph is always on the LEFT, same orientation, unchanged and unretouched.",
-            "TOPMOST TOP-MIDDLE ornamental designer plaque, aligned close to the upper edge (not lowered into the picture): line 1 exactly 'ज्योतिर्लिंग शिवमठ'; line 2 exactly 'बरौली, लखनऊ'. Both lines in Hindi.",
-            "The background artwork must reserve the upper-centre band (top 14 percent of the image, central 48 percent width) for this plaque: only sky or soft distant background there; absolutely no deity/character face, head, crown, halo, hand or important subject detail behind it.",
-            "Place Krishna/Arjuna or Shiva/other chapter figures slightly lower so every face is fully visible BELOW the top plaque and never hidden by it.",
-            "BOTTOM-MIDDLE ornamental designer plaque: exactly 'शिव महापुराण' for Shiv Puran or 'भगवद्गीता' for Bhagavad Gita.",
-            "Place the verified chapter number and chapter title immediately ABOVE the bottom book plaque.",
-            "Place the main chapter-specific Hindi subject headline large over the background artwork in the centre/right, with bright high-contrast lettering, a dark outline and localized shadow only.",
-            "Keep the original background bright and visible; never put a large dark panel behind the headline or darken the whole image.",
-            "Only chapter-specific background artwork, headline and verified chapter text vary. All text must be accurate and mobile-readable."
+            "USER-APPROVED red/gold 1280x720 master layout; do not redesign or move permanent elements.",
+            "Original supplied author photograph is large on the LEFT, same orientation, unchanged and unretouched.",
+            "Top red/gold plaque says exactly 'JYOTIRLING SHIVMATH' and 'BARAULI LUCKNOW'.",
+            "Second red/gold plaque says 'श्रीमद्भगवद्गीता' for Bhagavad Gita or 'शिव महापुराण' for Shiv Puran.",
+            "Replace the large central sample text 'अध्याय 2' with a short curiosity-driving Hindi TRICKY TOPIC of 1–2 lines.",
+            "Bottom-right red/gold strip carries only the verified lesson/chapter/verse range; never invent a chapter heading.",
+            "Bottom-left author plaque preserves 'Mahant Rajesh Kumar Tiwari “Ranjan”' and the Hindi professional descriptor.",
+            "Never put an अध्याय number in the central hook. If the chapter heading is not verified from the original PDF, omit it.",
+            "Keep the generated background bright and the deity/character faces visible; keep all permanent design positions unchanged."
         ],
         "guardrails": [
             "Never invent transcript contents, quotations, shlokas, chapter names, people or events.",
@@ -131,7 +130,7 @@ def _prompt(role_instruction, video, previous, transcript):
     return (
         "You are a specialist in a two-provider review pipeline for the JYOTIRLING SHIVMATH channel.\n"
         "Evidence hierarchy: use the full YouTube transcript for the actual spoken topic. ALWAYS cross-check the chapter number and printed chapter heading against the matched primary-scripture PDF evidence, even when a transcript exists. The transcript determines what was spoken; the book verifies the chapter and scripture reference. If the transcript topic and expected book chapter conflict, flag the discrepancy and do not force the book chapter into the title or thumbnail. If the PDF does not expose the exact printed heading, state that chapter verification is pending and omit chapter numbering from the thumbnail. If transcript is absent, use matched page-cited scripture excerpts; only after the 48-hour wait may description/title be used. Distinguish Sanskrit verses from Hindi translation and commentary; never attribute commentary to the deity as verbatim speech.\n"
-        + role_instruction + "\nReturn a structured Hindi-first response. AI-2 MUST include the exact field label 'संक्षिप्त हिंदी headline: ...' with a short, accurate headline. Include title options, complete description, tags, hashtags, chapter-verification status, and visual brief. AI-3 MUST state its verification result and corrections.\n"
+        + role_instruction + "\nReturn a structured Hindi-first response. AI-2 MUST include the exact field label 'Tricky Topic: ...' with a short, curiosity-driving but scripture-accurate Hindi hook (1–2 lines). Include title options, complete description, tags, hashtags, chapter-verification status, and visual brief. AI-3 MUST state its verification result and corrections.\n"
         + json.dumps(evidence, ensure_ascii=False, indent=2)
     )
 
@@ -173,16 +172,14 @@ def _thumbnail_prompt(video, final_package):
         "Absolutely no words, letters, numbers, logos, watermarks, banners, labels, captions, calligraphy, "
         "Devanagari glyphs, pseudo-writing, decorative letterforms or text-like symbols anywhere in the artwork. "
         "Do not depict the channel host or any portrait; the original host photo will be composited separately "
-        "on the LEFT. Keep the LEFT 22 percent relatively calm for that portrait, but do not make it a dark blank "
-        "strip. CRITICAL TOP SAFE ZONE: leave the top-centre band completely free of faces, heads, crowns, hair, "
-        "halos, hands, weapons and other important subject details. Specifically, the central 48 percent of image "
-        "width from the top edge down to 14 percent of image height must contain only quiet sky, distant architecture "
-        "or soft background texture. The deity and companion faces must begin BELOW this band, fully visible and "
-        "never behind the top-centre title plaque. Compose the main figures slightly lower in the frame to preserve "
-        "their complete faces below the plaque. Keep the CENTRE and RIGHT visually rich and chapter-specific, with "
-        "clear visual space for large Hindi headline lettering over the artwork. Keep the BOTTOM-MIDDLE reasonably "
-        "uncluttered for the book plaque. Do not darken the entire scene; use vivid, natural devotional lighting "
-        "and a bright, detailed background. No typography panels are to be generated. "
+        "on the LEFT and occupies roughly the left 32 percent. Keep that area visually compatible with the portrait "
+        "without creating a blank dark strip. The top band behind the permanent red/gold channel plaque must be "
+        "quiet and free of faces, heads, crowns, halos and important details. The upper-right/centre behind the "
+        "scripture-name plaque should also avoid character faces. Keep Krishna/Arjuna or chapter figures fully visible "
+        "in the centre/right below the plaques. Preserve a visually readable centre/right area for a short Hindi "
+        "Tricky Topic overlay, and a lower-right area for the lesson strip. Do not place key faces behind any text. "
+        "Do not darken the entire scene; use vivid devotional lighting and a bright detailed background. No text, "
+        "typography panels, banners, labels or calligraphy are to be generated. "
         "Chapter/programme context: " + str(programme) + "; " + str(section) + "; chapter " +
         str(chapter_number) + " — " + chapter_title +
         ". Video title: " + title +
@@ -333,66 +330,21 @@ def run_ai_preparation(queue, state_path, transcript_dir="transcripts",
             thumbnail_result = {"status": "not_attempted"}
             if complete:
                 thumbnail_dir.mkdir(parents=True, exist_ok=True)
-                image_path = thumbnail_dir / f"{_safe_id(vid)}_background.png"
-                if image_path.exists() and image_path.stat().st_size > 0:
-                    thumbnail_result = {"status": "background_ready", "file": str(image_path)}
-                else:
-                    final_package = stages[ROLES[1][0]]["output"]
-                    cross_review = stages[ROLES[2][0]]["output"]
-                    thumbnail_brief = final_package + "\n\nCross-review corrections:\n" + cross_review
-                    # Cloudflare FLUX is the primary thumbnail-background generator.
-                    # Keep other configured image providers as fallbacks.
-                    image_order = (["cloudflare"] if "cloudflare" in providers else []) + [
-                        p for p in providers if p != "cloudflare"
-                    ]
-                    image_errors = []
-                    image_attempts = []
-                    for provider in image_order:
-                        try:
-                            image_bytes, image_model = generate_thumbnail_background(
-                                provider, _thumbnail_prompt(item, thumbnail_brief))
-                            if not image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
-                                raise ValueError("Image provider did not return a PNG file")
-                            image_path.write_bytes(image_bytes)
-                            image_attempts.append({
-                                "provider": provider, "model": image_model,
-                                "status": "success"
-                            })
-                            thumbnail_result = {
-                                "status": "background_ready_needs_brand_composition",
-                                "file": str(image_path),
-                                "provider": provider,
-                                "model": image_model,
-                                "provider_attempts": image_attempts,
-                                "fallback_errors": image_errors,
-                                "note": "AI-generated background; original author photo and channel branding are composited separately."
-                            }
-                            break
-                        except Exception as exc:
-                            failure = {"provider": provider, "status": "failed",
-                                        "error": f"{type(exc).__name__}: {exc}"[:500]}
-                            image_errors.append(failure)
-                            image_attempts.append(failure)
-                    if thumbnail_result["status"] == "not_attempted":
-                        thumbnail_result = {"status": "image_generation_pending",
-                                             "provider_attempts": image_attempts}
-
-            if thumbnail_result.get("file") and Path(thumbnail_result["file"]).exists():
+                final_package = stages[ROLES[1][0]]["output"]
+                composed_path = thumbnail_dir / f"{_safe_id(vid)}_thumbnail.png"
                 try:
-                    composed_path = thumbnail_dir / f"{_safe_id(vid)}_thumbnail.png"
                     composition = compose_thumbnail(
-                        thumbnail_result["file"], composed_path,
+                        None, composed_path,
                         item.get("source_title") or item.get("title") or "विशेष आध्यात्मिक प्रवचन",
-                        video=item, final_package=stages[ROLES[1][0]]["output"])
-                    thumbnail_result.update(composition)
-                    thumbnail_result["status"] = "thumbnail_ready_for_user_review"
-                    thumbnail_result["note"] = (
-                        "The exact channel header, programme label, chapter text, headline and "
-                        "supplied original portrait are composed separately for human review.")
+                        video=item, final_package=final_package)
+                    thumbnail_result = {
+                        **composition,
+                        "status": "thumbnail_ready_for_user_review",
+                        "note": "Rendered from the fixed user-approved book-specific master image. Only manually supplied Tricky Title and lesson text are overlaid; no AI background is generated."
+                    }
                 except Exception as exc:
                     thumbnail_result = {
-                        "status": "background_ready_composition_failed",
-                        "background_file": thumbnail_result.get("file"),
+                        "status": "master_template_composition_failed",
                         "composition_error": f"{type(exc).__name__}: {exc}"[:500]
                     }
 
