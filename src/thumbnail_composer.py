@@ -99,15 +99,31 @@ def _extract_headline(final_package, fallback):
 
 def _extract_verified_lesson(video):
     source = video.get("primary_scripture_source") or {}
-    if source.get("status") != "matched" or not source.get("chapter_heading_verified"):
+    if source.get("status") == "matched" and source.get("chapter_heading_verified"):
+        heading = _clean(source.get("verified_chapter_heading"))
+        if heading:
+            section = _clean(video.get("khanda_name"))
+            if section and section not in heading:
+                return f"{section} — {heading}"
+            return heading
+
+    # A configured programme-feed chapter number is safe to show as a lesson
+    # locator, but do not invent or print an unverified chapter title.
+    chapter = video.get("chapter_number")
+    if not chapter:
+        feed = video.get("programme_feed") or {}
+        chapter = feed.get("chapter_number")
+    if not chapter:
         return ""
-    heading = _clean(source.get("verified_chapter_heading"))
-    if not heading:
-        return ""
-    section = _clean(video.get("khanda_name"))
-    if section and section not in heading:
-        return f"{section} — {heading}"
-    return heading
+    section = _clean(video.get("khanda_name") or (video.get("programme_feed") or {}).get("section_name"))
+    if video.get("programme") == "bhagavad_gita":
+        verse_start = video.get("verse_start") or (video.get("programme_feed") or {}).get("verse_start")
+        verse_end = video.get("verse_end") or (video.get("programme_feed") or {}).get("verse_end")
+        if verse_start and verse_end:
+            return f"अध्याय {chapter} • श्लोक {verse_start}–{verse_end} का भावार्थ"
+        return f"अध्याय {chapter}"
+    prefix = f"{section} • " if section else ""
+    return f"{prefix}अध्याय {chapter}"
 
 
 def compose_thumbnail(background_path, output_path, title, video=None, final_package=None):
