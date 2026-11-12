@@ -63,12 +63,12 @@ def compose_thumbnail(background_path, output_path, title, video=None, final_pac
     # Draw only user-entered copy. Empty values leave the template untouched.
     # The artwork, portrait, author plaque, book name and channel header are never regenerated.
     if hook:
-        font = _fit_font(draw, hook, 700, 54, 28)
+        font = _fit_font(draw, hook, 510, 48, 24)
         draw.text((820, 500), hook, font=font, fill=(255, 244, 220),
                   anchor="mm", stroke_width=4, stroke_fill=(58, 0, 0))
 
     if lesson:
-        font = _fit_font(draw, lesson, 740, 36, 22)
+        font = _fit_font(draw, lesson, 690, 34, 20)
         draw.text((865, 665), lesson, font=font, fill=(0, 35, 190),
                   anchor="mm", stroke_width=2, stroke_fill=(255, 224, 30))
 
