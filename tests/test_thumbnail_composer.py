@@ -6,7 +6,10 @@ from unittest.mock import patch
 
 from PIL import Image
 
-from src.thumbnail_composer import (compose_thumbnail, TEMPLATES, _split_script_runs,\n                                    _font_for_run, _centered_line_baselines)
+from src.thumbnail_composer import (
+    compose_thumbnail, TEMPLATES, _split_script_runs,
+    _font_for_run, _centered_line_baselines,
+)
 
 
 class MasterThumbnailComposerTests(unittest.TestCase):
