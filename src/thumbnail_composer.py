@@ -6,7 +6,8 @@ Only the two manually supplied text fields are overlaid for each lesson.
 from pathlib import Path
 import os
 import re
-from PIL import Image, ImageDraw, ImageFont
+import subprocess
+from PIL import Image, ImageDraw, ImageFont, features
 
 ROOT = Path(__file__).resolve().parents[1]
 SIZE = (1280, 720)
@@ -14,18 +15,41 @@ TEMPLATES = {
     "bhagavad_gita": ROOT / "assets" / "master_thumbnail_gita_blank_master.jpg",
     "shiv_puran": ROOT / "assets" / "master_thumbnail_shiv_puran_reference.jpg",
 }
-DEVANAGARI_BOLD = Path("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf")
-DEVANAGARI_REGULAR = Path("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf")
+def _find_devanagari_font():
+    # Resolve the actual installed font through fontconfig; package versions
+    # use different Noto Devanagari filenames across Ubuntu releases.
+    try:
+        result = subprocess.run(
+            ["fc-match", "-f", "%{file}", "Noto Sans Devanagari:style=Bold"],
+            check=True, capture_output=True, text=True, timeout=10,
+        )
+        candidate = Path(result.stdout.strip())
+        if candidate.is_file():
+            return candidate
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+    roots = (Path("/usr/share/fonts"), Path("/usr/local/share/fonts"))
+    for root in roots:
+        if root.exists():
+            matches = sorted(root.rglob("*Devanagari*Bold*.ttf"))
+            if matches:
+                return matches[0]
+    raise RuntimeError(
+        "Noto Sans Devanagari Bold font not found. Install fonts-noto-core and fontconfig."
+    )
 
 
 def _font(size):
-    for path in (DEVANAGARI_BOLD, DEVANAGARI_REGULAR):
-        if path.is_file():
-            try:
-                return ImageFont.truetype(str(path), size)
-            except OSError:
-                pass
-    return ImageFont.load_default()
+    path = _find_devanagari_font()
+    if not features.check("raqm"):
+        raise RuntimeError(
+            "Pillow was built without libraqm; Hindi shaping is unavailable. "
+            "Install libraqm/harfbuzz/fribidi and a Pillow build with RAQM support."
+        )
+    return ImageFont.truetype(
+        str(path), size, layout_engine=ImageFont.Layout.RAQM
+    )
 
 
 def _clean(value):
