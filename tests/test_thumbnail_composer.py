@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from PIL import Image
 
-from src.thumbnail_composer import compose_thumbnail, TEMPLATES, _split_script_runs, _font_for_run
+from src.thumbnail_composer import (compose_thumbnail, TEMPLATES, _split_script_runs,\n                                    _font_for_run, _centered_line_baselines)
 
 
 class MasterThumbnailComposerTests(unittest.TestCase):
@@ -86,6 +86,34 @@ class MasterThumbnailComposerTests(unittest.TestCase):
             self.assertEqual(result["master_template"], "master_thumbnail_gita_blank_master.jpg")
             self.assertIsNone(result["thumbnail_headline"])
             self.assertIsNone(result["chapter_text"])
+
+
+    def test_short_copy_uses_larger_starting_font_sizes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "short.png"
+            with patch.dict(os.environ, {
+                "THUMBNAIL_TRICKY_TITLE": "धर्म",
+                "THUMBNAIL_LESSON_TEXT": "विषय",
+            }):
+                result = compose_thumbnail(
+                    None, output, "ignored",
+                    video={"programme": "bhagavad_gita"},
+                )
+            self.assertEqual(result["title_layout"]["font_size"], 54)
+            self.assertEqual(result["lesson_layout"]["font_size"], 40)
+
+    def test_multiline_text_is_centered_using_real_baseline_bounds(self):
+        bounds = [(-30, 8), (-25, 7)]
+        spacing = 4
+        center = 500
+        baselines = _centered_line_baselines(bounds, center, spacing)
+        visual_top = baselines[0] + bounds[0][0]
+        visual_bottom = baselines[-1] + bounds[-1][1]
+        self.assertAlmostEqual((visual_top + visual_bottom) / 2, center)
+        self.assertAlmostEqual(
+            baselines[1] + bounds[1][0] - (baselines[0] + bounds[0][1]),
+            spacing,
+        )
 
     def test_unknown_programme_is_rejected(self):
         with self.assertRaises(ValueError):
