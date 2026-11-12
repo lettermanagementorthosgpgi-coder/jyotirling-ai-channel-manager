@@ -58,7 +58,7 @@ def _clean(value):
     value = str(value or "").replace("`", "")
     value = re.sub(r"[\\*_]", "", value)
     value = value.replace("•", " - ").replace("·", " - ")
-    return re.sub(r"\\s+", " ", value).strip()
+    return re.sub(r"\s+", " ", value).strip()
 
 
 def _wrap_line(draw, text, font, max_width):
