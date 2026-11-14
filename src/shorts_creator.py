@@ -62,6 +62,7 @@ def create(url,count,mn,mx):
  WORK.mkdir(parents=True)
  source,info=download(url); rows=get_transcript(vid)
  duration=float(info.get("duration") or run(["ffprobe","-v","error","-show_entries","format=duration","-of","default=nw=1:nk=1",str(source)]))
+ if duration<=600: raise ValueError("Shorts Manager accepts long-form source videos longer than 10 minutes.")
  obj,provider,model=select(rows,count,mn,mx)
  clips=[]
  for x in obj["clips"]:
