@@ -51,12 +51,16 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          SOURCE_URL: ${{ inputs.youtube_url }}
+          SHORTS_COUNT: ${{ inputs.shorts_count }}
+          MIN_SECONDS: ${{ inputs.min_seconds }}
+          MAX_SECONDS: ${{ inputs.max_seconds }}
         run: |
           python -m src.shorts_creator \
-            --url "${{ inputs.youtube_url }}" \
-            --count "${{ inputs.shorts_count }}" \
-            --min-seconds "${{ inputs.min_seconds }}" \
-            --max-seconds "${{ inputs.max_seconds }}"
+            --url "$SOURCE_URL" \
+            --count "$SHORTS_COUNT" \
+            --min-seconds "$MIN_SECONDS" \
+            --max-seconds "$MAX_SECONDS"
       - name: Upload review ZIP
         uses: actions/upload-artifact@v4
         with:
