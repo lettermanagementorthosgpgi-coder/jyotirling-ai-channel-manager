@@ -139,3 +139,16 @@ The AI preparation pipeline now follows this evidence order:
 The PDF lookup adapter is in `src/scripture_sources.py`. The public repository intentionally does not contain the two complete book PDFs. See [scripture_sources/README.md](scripture_sources/README.md) for the private runner-side file names and provisioning requirement.
 
 **Current limitation:** the uploaded PDFs in the ChatGPT conversation are not automatically available to GitHub Actions. Until the files are securely mounted into the runner at `scripture_sources/pdfs/`, the lookup returns `source_file_not_provisioned`; the pipeline continues waiting and does not claim a scripture match. The Shiv Puran PDF is a Hindi translation, and the Gita Yatharoop edition includes Sanskrit verses plus Hindi translation/commentary. The AI must distinguish these layers and cite PDF page numbers. OCR/text extraction quality must be checked before relying on a passage.
+
+## Manual Create YouTube Shorts workflow
+
+The separate **Actions → Create YouTube Shorts → Run workflow** prepares a review ZIP from a public URL of a completed vertical video that the user owns or is authorized to download and edit.
+
+- Default: 5 Shorts, 30–60 seconds each; optional 7 or 10 clips and duration choices.
+- Uses yt-dlp to attempt source retrieval, public timed captions for timestamped transcript analysis, and the configured OpenAI/Gemini text API for clip selection and Hindi SEO copy.
+- FFmpeg preserves the source vertical framing and burns available Hindi captions into each MP4.
+- The artifact `jyotirling-shorts-review` contains the MP4 clips, SRT captions, and JSON metadata. It is retained for 7 days.
+- Requires the existing `OPENAI_API_KEY` and/or `GEMINI_API_KEY` Actions secret. This workflow does not call YouTube Data API, does not use YouTube OAuth, and does not require a new YouTube credential.
+- Public video URLs do not guarantee that a downloader will work. YouTube may block or change access; transcript captions may also be unavailable. A failed step stops the workflow rather than inventing clips or captions.
+- Use only videos you own or are authorized to download and edit. A public URL alone does not grant reuse rights, and third-party downloading may be restricted by YouTube's terms.
+- This workflow is review-only: it does not upload Shorts, edit channel metadata, or publish. Every Short remains pending the user's approval.
